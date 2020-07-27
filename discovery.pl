@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use Cwd;
+use File::Path qw(make_path);
 use Text::Markdown 'markdown';
 my $dir = getcwd;
 my $mode;
@@ -64,6 +65,7 @@ sub start {
 		}
 	}
 	foreach $dir (@dirs) {
+		make_path("/_site/$dir, 0777") or die "err mkpath $dir: $!";
 		chdir($dir);
 		my @files = readdir $dh;
 		foreach $file (<*>) {
