@@ -1,4 +1,4 @@
-#!/usr/env perl
+#!/usr/bin/env perl
 
 use strict;
 use warnings;
@@ -46,9 +46,11 @@ sub init {
 sub writehtml {
 	my @file = @_;
 	open my $info, $file[0] or die "Could not open: $!";
+	$file[0] =~ s/\.md$/\.html/;
+	open my $fh, ">", "$file[0]";
 	while(my $line = <$info>)  {
 		my $html = markdown($line);
-		print $html;
+		print {$fh} $html;
 	}
 }
 
@@ -57,7 +59,6 @@ sub start {
 	my @dirs;
 	my @files = readdir $dh;
 	foreach $file (<*>) {
-		print "$file\n";
 		if (-d $file && $file ne "." && $file ne "..") {
       			push(@dirs, $file);
     		} elsif ($file =~ /\.md$/) {
@@ -65,7 +66,6 @@ sub start {
 		}
 	}
 	foreach $dir (@dirs) {
-		make_path("/_site/$dir, 0777") or die "err mkpath $dir: $!";
 		chdir($dir);
 		my @files = readdir $dh;
 		foreach $file (<*>) {
@@ -76,6 +76,7 @@ sub start {
 			}
 		}
 	}
+	#make_path "./_site/$dir" or die "err mkpath $dir: $!";
 }
 
 format STDOUT_TOP = 
