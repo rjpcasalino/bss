@@ -22,7 +22,6 @@ sub init {
 	} else {
 		$mode = "NORMAL";
 	}
-
 	if ($mode eq "DEBUG") {
 		printf "MODE: %s\n", $mode;
 		printf "Working in: %s\n", $dir;
@@ -34,7 +33,6 @@ sub init {
 		printf "MODE: %s\n", $mode;
 		printf "Working in: %s\n", $dir;
 	} 
-	
 	printf "Welcome!\n Enter a command. (hint: H or h gives help)\n";
 	my $answer = <STDIN>;
 	if ($answer =~ /^h/i) {
@@ -55,17 +53,36 @@ sub writehtml {
 	my @file = @_;
 	# TODO:
 	# understand diffs between these two open calls
+<<<<<<< Updated upstream
 	# is my $line really a line? It's a GLOB...?
+=======
+	# is my $line really a line? It's a GLOB.
+>>>>>>> Stashed changes
 	open my $line, $file[0] or die "open error: $!";
 	$file[0] =~ s/\.md$/\.html/;
 	open my $fh, ">", $file[0] or die "open error: $!";
 	while(<$line>) {
+<<<<<<< Updated upstream
 		# $. is the line number
 		next if $. == 1 || $. == 2;
 		if ($_ =~ /^:[tT]/) {
 			print "Title is: $_";
 		} elsif ($_ =~ /^:[lL]/) {
 			print "Layout is: $_";
+=======
+		if ($_ =~ /^:[tl]:/i) {
+			if ($_ =~ /^:[tT]/) {
+				print "Title is: $_";
+			} elsif ($_ =~ /^:[lL]/) {
+				print "Layout is: $_";
+			}
+			$_ = join("", split(/:[tlTL]:/, $_));
+			$_ =~ tr/:://d;
+			# TODO: use title and layout in template...
+		} else {
+			my $html = markdown($_);
+  			print {$fh} $html;
+>>>>>>> Stashed changes
 		}
 		$_ = join("", split(/:[tlTL]:/, $_));
 		$_ =~ tr/:://d;
@@ -78,7 +95,7 @@ sub writehtml {
 my @dirs;
 sub survey {
 	my $file = @_;
-	foreach $file (<*>) {
+	foreach my $file (<*>) {
 		if (-d $file && $file ne "." && $file ne "..") {
       			push(@dirs, $file);
     		} elsif ($file =~ /\.md$/) {
@@ -91,9 +108,11 @@ sub start {
 	opendir my $dh, $_[0] or die "opendir error ($_[0]): $!";
 	my @files = readdir $dh;
 	survey();
-	foreach $dir (@dirs) {
-		chdir($dir);
-		my @files = readdir $dh;
+	foreach my $dir (@dirs) {
+		chdir($dir) or die "chdir error: $!";
+		@files = readdir $dh;
 		survey();
+		# important!
+		chdir "..";
 	}
 }
