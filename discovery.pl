@@ -72,11 +72,6 @@ sub writehtml {
 		} elsif ($_ =~ /^:[lL]/) {
 			print "Layout is: $_";
 		}
-		$_ = join("", split(/:[tlTL]:/, $_));
-		$_ =~ tr/:://d;
-		# TODO: use title and layout in template...
-		my $html = markdown($_);
-		print {$fh} $html;
 	}
 }
 
