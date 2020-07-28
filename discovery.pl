@@ -71,11 +71,6 @@ sub writehtml {
 			my $html = markdown($_);
   			print {$fh} $html;
 		}
-		$_ = join("", split(/:[tlTL]:/, $_));
-		$_ =~ tr/:://d;
-		# TODO: use title and layout in template...
-		my $html = markdown($_);
-		print {$fh} $html;
 	}
 }
 
