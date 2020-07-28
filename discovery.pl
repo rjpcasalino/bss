@@ -53,9 +53,13 @@ sub init {
 
 sub writehtml {
 	my @file = @_;
-	open my $line, $file[0] or die "Could not open: $!";
+	# TODO:
+	# understand diffs between these two open calls
+	# is my $line really a line? It's a GLOB.
+	# Read up on it...
+	open my $line, $file[0] or die "open error: $!";
 	$file[0] =~ s/\.md$/\.html/;
-	open my $fh, ">", $file[0] or die "err: $!";
+	open my $fh, ">", $file[0] or die "open error: $!";
 	while(<$line>) {
 		# TODO: 
 		# this is messy and I'm not even sure how the next if solved my problem????
@@ -93,7 +97,7 @@ sub survey {
 }
 
 sub start {
-	opendir my $dh, $_[0] or die "Failed to open $_[0]: $!";
+	opendir my $dh, $_[0] or die "opendir error ($_[0]): $!";
 	my @files = readdir $dh;
 	survey();
 	foreach $dir (@dirs) {
