@@ -1,11 +1,15 @@
 #!/usr/bin/env perl
+# NOTES: 
+# (on perl)
+# getting tripped up regarding scope
+# need to read more on `my` and `local`
 
 use strict;
 use warnings;
 
 use Cwd;
-use File::Path qw(make_path);
 use Text::Markdown 'markdown';
+
 my $build;
 my $dir = getcwd;
 my $mode;
@@ -57,6 +61,7 @@ sub writehtml {
 		# this is messy and I'm not even sure how the next if solved my problem????
 		# Yep, I'm sleepless in Seattle. Could be worse to not know why one doesn't 
 		# understand something...
+		# $. is the line number 
 		next if $. == 1;
 		if ($_ =~ /^:[tl]:\w+::/i) {
 			if ($_ =~ /^:[tT]/) {
@@ -82,7 +87,6 @@ sub survey {
 		if (-d $file && $file ne "." && $file ne "..") {
       			push(@dirs, $file);
     		} elsif ($file =~ /\.md$/) {
-			print $file;
 			writehtml($file);
 		}
 	}
@@ -91,12 +95,10 @@ sub survey {
 sub start {
 	opendir my $dh, $_[0] or die "Failed to open $_[0]: $!";
 	my @files = readdir $dh;
-	print "HELLP";
 	survey();
 	foreach $dir (@dirs) {
 		chdir($dir);
 		my @files = readdir $dh;
-		print $dir;
 		survey();
 	}
 }
