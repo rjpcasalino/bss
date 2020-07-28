@@ -47,7 +47,7 @@ sub init {
 		print "Starting Discovery...\n";
 		start($dir);
 	}
-	print "Remember, don't give in!\n Never never never give in.\n Stay well, small fry.\n Goodbye and good luck!";
+	print "Remember, don't give in!\nNever, never, never give in.\nGoodbye and good luck!";
 	die;
 }
 
@@ -62,25 +62,21 @@ sub writehtml {
 	open my $fh, ">", $file[0] or die "open error: $!";
 	while(<$line>) {
 		# TODO: 
-		# this is messy and I'm not even sure how the next if solved my problem????
-		# Yep, I'm sleepless in Seattle. Could be worse to not know why one doesn't 
-		# understand something...
-		# $. is the line number 
-		next if $. == 1;
-		if ($_ =~ /^:[tl]:\w+::/i) {
-			if ($_ =~ /^:[tT]/) {
-				print "Title is: $_";
-			} elsif ($_ =~ /^:[lL]/) {
-				print "Layout is: $_";
-			}
-			$_ = join("", split(/:[tlTL]:/, $_));
-			$_ =~ tr/:://d;
-			# TODO: use title and layout in template...
-			print $_;
-		} else {
-			my $html = markdown($_);
-  			print {$fh} $html;
+		# this is messy.
+		# I'm not even sure how the `next if` 
+		# solved my problem?
+		# $. is the line number
+		next if $. == 1 || $. == 2;
+		if ($_ =~ /^:[tT]/) {
+			print "Title is: $_";
+		} elsif ($_ =~ /^:[lL]/) {
+			print "Layout is: $_";
 		}
+		$_ = join("", split(/:[tlTL]:/, $_));
+		$_ =~ tr/:://d;
+		# TODO: use title and layout in template...
+		my $html = markdown($_);
+		print {$fh} $html;
 	}
 }
 
