@@ -55,24 +55,25 @@ sub writehtml {
 	my @file = @_;
 	# TODO:
 	# understand diffs between these two open calls
-	# is my $line really a line? It's a GLOB.
-	# Read up on it...
+	# is my $line really a line? It's a GLOB?
 	open my $line, $file[0] or die "open error: $!";
 	$file[0] =~ s/\.md$/\.html/;
 	open my $fh, ">", $file[0] or die "open error: $!";
 	while(<$line>) {
-		# TODO: 
-		# this is messy.
-		# I'm not even sure how the `next if` 
-		# solved my problem?
-		# $. is the line number
-		next if $. == 1 || $. == 2;
-		if ($_ =~ /^:[tT]/) {
-			print "Title is: $_";
-		} elsif ($_ =~ /^:[lL]/) {
-			print "Layout is: $_";
-		}
-	}
+		if ($_ =~ /^:[tl]:/i) {
+			if ($_ =~ /^:[tT]/) {
+				print "Title is: $_";
+			} elsif ($_ =~ /^:[lL]/) {
+		   		print "Layout is: $_";
+			} 
+			$_ = join("", split(/:[tlTL]:/, $_));
+			$_ =~ tr/:://d;
+			# TODO: use title and layout in template...
+	  	} else {
+		  	my $html = markdown($_);
+		  	print {$fh} $html;
+	  	}
+  	}
 }
 
 my @dirs;
@@ -95,5 +96,7 @@ sub start {
 		chdir($dir);
 		my @files = readdir $dh;
 		survey();
+		# important!
+		chdir "..";
 	}
 }
