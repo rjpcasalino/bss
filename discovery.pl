@@ -53,23 +53,11 @@ sub writehtml {
 	my @file = @_;
 	# TODO:
 	# understand diffs between these two open calls
-<<<<<<< Updated upstream
 	# is my $line really a line? It's a GLOB...?
-=======
-	# is my $line really a line? It's a GLOB.
->>>>>>> Stashed changes
 	open my $line, $file[0] or die "open error: $!";
 	$file[0] =~ s/\.md$/\.html/;
 	open my $fh, ">", $file[0] or die "open error: $!";
 	while(<$line>) {
-<<<<<<< Updated upstream
-		# $. is the line number
-		next if $. == 1 || $. == 2;
-		if ($_ =~ /^:[tT]/) {
-			print "Title is: $_";
-		} elsif ($_ =~ /^:[lL]/) {
-			print "Layout is: $_";
-=======
 		if ($_ =~ /^:[tl]:/i) {
 			if ($_ =~ /^:[tT]/) {
 				print "Title is: $_";
@@ -82,7 +70,6 @@ sub writehtml {
 		} else {
 			my $html = markdown($_);
   			print {$fh} $html;
->>>>>>> Stashed changes
 		}
 		$_ = join("", split(/:[tlTL]:/, $_));
 		$_ =~ tr/:://d;
