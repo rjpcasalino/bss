@@ -1,14 +1,11 @@
 #!/usr/bin/env perl
-# NOTES: 
-# (on perl)
-# getting tripped up regarding scope
-# need to read more on `my` and `local`
 
 use strict;
 use warnings;
 
 use Cwd;
 use Text::Markdown 'markdown';
+use Template;
 
 my $build;
 my $dir = getcwd;
@@ -50,6 +47,22 @@ sub init {
 }
 
 sub writehtml {
+	my $config = {
+	    INCLUDE_PATH => "/$dir/templates",  # or list ref
+	    INTERPOLATE  => 1,               # expand "$var" in plain text
+	    POST_CHOMP   => 1,               # cleanup whitespace
+	    EVAL_PERL    => 1,               # evaluate Perl code blocks
+	};
+
+	# create Template object
+	my $template = Template->new($config);
+
+	my $title;
+	my @body;
+
+	my $tmpl;
+	my $html;
+
 	my @file = @_;
 	# TODO:
 	# understand diffs between these two open calls
@@ -60,18 +73,31 @@ sub writehtml {
 	while(<$line>) {
 		if ($_ =~ /^:[tl]:/i) {
 			if ($_ =~ /^:[tT]/) {
-				print "Title is: $_";
+				$_ = join("", split(/:[tlTL]:/, $_));
+				$_ =~ tr/:://d;
+				$title = $_;
+				print "Te: $title";
 			} elsif ($_ =~ /^:[lL]/) {
-				print "Layout is: $_";
+				$_ = join("", split(/:[tlTL]:/, $_));
+				$_ =~ s/::/\.tmpl/;
+				$tmpl = $_;
+				$tmpl =~ s/^\s*(.*?)\s*$/$1/;
+				print "Template: $_";
 			}
-			$_ = join("", split(/:[tlTL]:/, $_));
-			$_ =~ tr/:://d;
-			# TODO: use title and layout in template...
 		} else {
-			my $html = markdown($_);
-  			print {$fh} $html;
+			push(@body, markdown($_));
 		}
 	}
+	
+	my $vars = {
+	    title  => $title,
+	    # \@ notation will return a reference
+	    body => \@body
+	};
+
+	# process input template, substituting variables
+	$template->process($tmpl, $vars)
+		or die $template->error();
 }
 
 my @dirs;
