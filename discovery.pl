@@ -64,9 +64,7 @@ sub writehtml {
 	my $html;
 
 	my @file = @_;
-	# TODO:
-	# understand diffs between these two open calls
-	# is my $line really a line? It's a GLOB...?
+	
 	open my $line, $file[0] or die "open error: $!";
 	$file[0] =~ s/\.md$/\.html/;
 	open my $fh, ">", $file[0] or die "open error: $!";
@@ -76,7 +74,7 @@ sub writehtml {
 				$_ = join("", split(/:[tlTL]:/, $_));
 				$_ =~ tr/:://d;
 				$title = $_;
-				print "Te: $title";
+				print "Title: $title";
 			} elsif ($_ =~ /^:[lL]/) {
 				$_ = join("", split(/:[tlTL]:/, $_));
 				$_ =~ s/::/\.tmpl/;
