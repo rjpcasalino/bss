@@ -7,9 +7,36 @@ use Cwd;
 use File::Find;
 use Text::Markdown 'markdown';
 use Template;
+use Log::Dispatch;
+use Log::Dispatch::File;
+use Log::Dispatch::Screen;
 
 my $root_dir = getcwd;
 my $mode;
+
+my $log = Log::Dispatch->new();
+$log->add(
+    Log::Dispatch::File->new(
+        name      => "logfile1",
+        min_level => "debug",
+        filename  => "logfile"
+    )
+);
+$log->add(
+    Log::Dispatch::Screen->new(
+        name      => "screen",
+        min_level => "warning",
+    )
+);
+
+$log->add(
+    Log::Dispatch::Screen->new(
+        name      => "screen",
+        min_level => "info",
+    )
+);
+ 
+$log->log( level => "info", message => "Discovery Init\n" );
 
 init(@ARGV);
 
@@ -20,16 +47,10 @@ sub init {
 		$mode = "NORMAL";
 	}
 	if ($mode eq "DEBUG") {
-		printf "MODE: %s\n", $mode;
-		printf "Working in: %s\n", getcwd;
 		my $time = localtime();
-		print "Local time: $time\n\n";
-		# TODO: 
-		# log format switch 
-	} elsif ($mode eq "NORMAL") {
-		printf "MODE: %s\n", $mode;
-		printf "Working in: %s\n", getcwd;
-	} 
+		$log->debug("DEBUG: $time\n");
+		$log->info("DEBUG: $time\n");
+	}
 	printf "Welcome!\n Enter a command. (hint: H or h gives help)\n";
 	my $answer = <STDIN>;
 	if ($answer =~ /^h/i) {
@@ -39,11 +60,12 @@ sub init {
 		close MAN;
 		die;
 	} elsif ($answer =~ /^s/i) {
-		print "Starting Discovery...\n";
+		my $time = localtime();
+		$log->info("Build started: $time\n");
 		find(\&start, $root_dir);
 	}
-	print "Remember, don't give in!\nNever, never, never give in.\nGoodbye and good luck!";
-	die;
+	print "\n\tRemember!\n\tDon't give in!\n\tNever, never, never give in.\n\n\n...Goodbye and good luck!";
+	exit;
 }
 
 sub writehtml {
@@ -62,8 +84,8 @@ sub writehtml {
 	my @body;
 
 	my $tmpl;
-
-	open my $line, $file or die "open error: $!";
+	# TODO: log and die prints to screen twice? why...
+	open my $line, $file or $log->log_and_die(level => "warning", message => "$!");
 	$file =~ s/\.md$/\.html/;
 	open my $fh, ">", $file or die "open error: $!";
 	while(<$line>) {
@@ -92,7 +114,7 @@ sub writehtml {
 	};
 
 	# process input template, substituting variables
-	$template->process($tmpl, $vars)
+	$template->process($tmpl, $vars, $fh)
 		or die $template->error();
 }
 
@@ -100,13 +122,15 @@ sub writehtml {
 sub start {
     # Name of the file (without path information)
     print "$_\n"; 
-    if (-d $_ && $_ ne ".") { #ignore hidden dirs
+    if (-d $_ && $_ ne ".") { 
+	    # ignore hidden dirs
+	    $log->info("Sub-directory encountered: $_\n");
 	    if (File::Spec -> abs2rel($File::Find::name, $root_dir) =~ /^\./) {
+	    	    $log->info("Ignoring: $File::Find::name\n"); # directory name
 		    $File::Find::prune = 1;
-	    } 
-	    print "\$File::Find::dir   $File::Find::dir \n"; # directory containing file
-	    print "\$File::Find::name  $File::Find::name\n"; # path of file
+	    }
     } elsif ($_ =~ /.md$/) {
+	    $log->info("Processing markdown: $_\n");
 	    writehtml($_);
     }
 }
