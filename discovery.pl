@@ -62,7 +62,6 @@ sub writehtml {
 	my @body;
 
 	my $tmpl;
-	print "$file";
 
 	open my $line, $file or die "open error: $!";
 	$file =~ s/\.md$/\.html/;
@@ -101,10 +100,12 @@ sub writehtml {
 sub start {
     # Name of the file (without path information)
     print "$_\n"; 
-    if (-d $_) {
+    if (-d $_ && $_ ne ".") { #ignore hidden dirs
+	    if (File::Spec -> abs2rel($File::Find::name, $root_dir) =~ /^\./) {
+		    $File::Find::prune = 1;
+	    } 
 	    print "\$File::Find::dir   $File::Find::dir \n"; # directory containing file
 	    print "\$File::Find::name  $File::Find::name\n"; # path of file
-	    print "relative path      ". File::Spec -> abs2rel($File::Find::name, $root_dir), "\n";
     } elsif ($_ =~ /.md$/) {
 	    writehtml($_);
     }
