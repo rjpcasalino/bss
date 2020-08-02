@@ -28,9 +28,8 @@ use Template;
 use Log::Dispatch;
 use Log::Dispatch::File;
 use Log::Dispatch::Screen;
-
-my $root_dir = getcwd;
-my $mode;
+use Getopt::Long qw(GetOptions);
+use Pod::Usage qw(pod2usage);
 
 my $log = Log::Dispatch->new();
 $log->add(
@@ -56,30 +55,26 @@ $log->add(
  
 $log->log( level => "info", message => "Discovery Init\n" );
 
-init(@ARGV);
+my $root_dir = getcwd;
 
-sub init {
-	if (defined $ARGV[0] && $ARGV[0] =~ /^--d/i) {
-		$mode = "DEBUG";
-	} else {
-		$mode = "NORMAL";
-	}
-	if ($mode eq "DEBUG") {
+my $debug;
+my $help;
+
+## Parse options
+GetOptions("help|?" => \$help, "DEBUG|d" => \$debug) or pod2usage(2);
+pod2usage(1) if $help;
+
+main();
+
+sub main {
+	printf "Welcome!\n Enter a command.\n";
+	if ($debug) {
 		my $time = localtime();
 		$log->debug("DEBUG: $time\n");
-		$log->info("DEBUG: $time\n");
+		$log->info("!DEBUG MODE!\n");
 	}
-	printf "Welcome!\n Enter a command. (hint: H or h gives help)\n";
-	my $answer = <STDIN>;
-	if ($answer =~ /^h/i) {
-		# TODO: 
-		# create man page with troff and gzip it to store in /usr/share/man
-		open (MAN, "| man discovery");
-		close MAN;
-		die;
-	} elsif ($answer =~ /^s/i) {
-		my $time = localtime();
-		$log->info("Build started: $time\n");
+	my $command = <STDIN>;
+	if ($command =~ /^(s)tart/i) {
 		find(\&start, $root_dir);
 	}
 	print "\n\tRemember!\n\tDon't give in!\n\tNever, never, never give in.\n\n\n...Goodbye and good luck!";
@@ -117,7 +112,7 @@ sub writehtml {
 				$_ = join("", split(/:[tlTL]:/, $_));
 				$_ =~ s/::/\.tmpl/;
 				$tmpl = $_;
-				$tmpl =~ s/^\s*(.*?)\s*$/$1/;
+				$tmpl =~ s/^\s*(.*?)\s*$/$1/; # remove white space; ugly
 				print "Template: $_";
 			}
 		} else {
@@ -138,8 +133,6 @@ sub writehtml {
 
 
 sub start {
-    # Name of the file (without path information)
-    print "$_\n"; 
     if (-d $_ && $_ ne ".") { 
 	    # ignore hidden dirs
 	    $log->info("Sub-directory encountered: $_\n");
@@ -152,3 +145,20 @@ sub start {
 	    writehtml($_);
     }
 }
+
+=head1 NAME
+
+Discovery - A simple static site generator 
+
+=head1 SYNOPSIS
+
+discovery [options] [file ...]
+
+     Options:
+       -help|-?|-HELP     prints this help message
+       -d|D|DEBUG         DEBUG mode
+
+    Commands:
+    	start		 builds _site dir
+	server		 builds _site dir and serves it
+	stats            get some stats (e.g., how many pages)
