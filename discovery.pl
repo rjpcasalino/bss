@@ -4,11 +4,11 @@ use strict;
 use warnings;
 
 use Cwd;
+use File::Find;
 use Text::Markdown 'markdown';
 use Template;
 
-my $build;
-my $dir = getcwd;
+my $root_dir = getcwd;
 my $mode;
 
 init(@ARGV);
@@ -21,14 +21,14 @@ sub init {
 	}
 	if ($mode eq "DEBUG") {
 		printf "MODE: %s\n", $mode;
-		printf "Working in: %s\n", $dir;
+		printf "Working in: %s\n", getcwd;
 		my $time = localtime();
 		print "Local time: $time\n\n";
 		# TODO: 
 		# log format switch 
 	} elsif ($mode eq "NORMAL") {
 		printf "MODE: %s\n", $mode;
-		printf "Working in: %s\n", $dir;
+		printf "Working in: %s\n", getcwd;
 	} 
 	printf "Welcome!\n Enter a command. (hint: H or h gives help)\n";
 	my $answer = <STDIN>;
@@ -40,15 +40,16 @@ sub init {
 		die;
 	} elsif ($answer =~ /^s/i) {
 		print "Starting Discovery...\n";
-		start($dir);
+		find(\&start, $root_dir);
 	}
 	print "Remember, don't give in!\nNever, never, never give in.\nGoodbye and good luck!";
 	die;
 }
 
 sub writehtml {
+	my $file = $_;
 	my $config = {
-	    INCLUDE_PATH => "/$dir/templates",  # or list ref
+	    INCLUDE_PATH => "/$root_dir/templates",  # or list ref
 	    INTERPOLATE  => 1,               # expand "$var" in plain text
 	    POST_CHOMP   => 1,               # cleanup whitespace
 	    EVAL_PERL    => 1,               # evaluate Perl code blocks
@@ -61,13 +62,11 @@ sub writehtml {
 	my @body;
 
 	my $tmpl;
-	my $html;
+	print "$file";
 
-	my @file = @_;
-	
-	open my $line, $file[0] or die "open error: $!";
-	$file[0] =~ s/\.md$/\.html/;
-	open my $fh, ">", $file[0] or die "open error: $!";
+	open my $line, $file or die "open error: $!";
+	$file =~ s/\.md$/\.html/;
+	open my $fh, ">", $file or die "open error: $!";
 	while(<$line>) {
 		if ($_ =~ /^:[tl]:/i) {
 			if ($_ =~ /^:[tT]/) {
@@ -98,27 +97,15 @@ sub writehtml {
 		or die $template->error();
 }
 
-my @dirs;
-sub survey {
-	my $file = @_;
-	foreach my $file (<*>) {
-		if (-d $file && $file ne "." && $file ne "..") {
-      			push(@dirs, $file);
-    		} elsif ($file =~ /\.md$/) {
-			writehtml($file);
-		}
-	}
-}
 
 sub start {
-	opendir my $dh, $_[0] or die "opendir error ($_[0]): $!";
-	my @files = readdir $dh;
-	survey();
-	foreach my $dir (@dirs) {
-		chdir($dir) or die "chdir error: $!";
-		@files = readdir $dh;
-		survey();
-		# important!
-		chdir "..";
-	}
+    # Name of the file (without path information)
+    print "$_\n"; 
+    if (-d $_) {
+	    print "\$File::Find::dir   $File::Find::dir \n"; # directory containing file
+	    print "\$File::Find::name  $File::Find::name\n"; # path of file
+	    print "relative path      ". File::Spec -> abs2rel($File::Find::name, $root_dir), "\n";
+    } elsif ($_ =~ /.md$/) {
+	    writehtml($_);
+    }
 }
