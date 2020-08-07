@@ -24,6 +24,7 @@ use warnings;
 use POSIX qw(strftime);
 use Cwd;
 use File::Find;
+use File::Copy;
 use File::Path qw(make_path remove_tree);
 use Text::Markdown 'markdown';
 use Template;
@@ -36,54 +37,43 @@ use Pod::Usage qw(pod2usage);
 
 my $debug;
 my $help;
+my $root_dir = getcwd;
+
+## Parse options
+GetOptions("HELP|help|h" => \$help, "DEBUG|debug|d" => \$debug) or pod2usage(2);
+pod2usage(1) if $help;
+
+
+## Log options
 my $log = Log::Dispatch->new();
 
 $log->add(
-    Log::Dispatch::File->new(
-        name      => "logfile1",
+    Log::Dispatch::Screen->new(
+        name      => "screen_debug",
         min_level => "debug",
-        filename  => "logfile"
-    )
-);
-$log->add(
-    Log::Dispatch::Screen->new(
-        name      => "screen",
-        min_level => "warning",
-    )
-);
-
-$log->add(
-    Log::Dispatch::Screen->new(
-        name      => "screen",
-        min_level => "info",
     )
 );
 
 # TODO:
 # only log to file on debug
 sub llog {
-	if ($debug) {
-		$log->log(level => "debug", message => "DEBUG: @_\n");
+	my ($oblig_msg) = @_;
+	if (defined $debug) {
+		$log->log(level => "debug", message => "DEBUG: $oblig_msg\n");
 	} else {
-		$log->log(level => "info", message => "INFO: @_\n");
+		$log->log(level => "info", message => "INFO: $oblig_msg\n");
 	}
 }
 
-my $root_dir = getcwd;
-
-## Parse options
-GetOptions("HELP|help" => \$help, "DEBUG|debug" => \$debug) or pod2usage(2);
-pod2usage(1) if $help;
-
+my $time = localtime();
+if ($debug) {
+	$log->log(level => "debug", message => "!!!\tDEBUG MODE\t!!!\n");
+	$log->log(level => "debug", message =>"$time\n");
+}
 main();
 
 sub main {
-	if ($debug) {
-		my $time = localtime();
-		llog("!!!\tDEBUG MODE\t!!!");
-		llog($time);
-	}
-	
+	llog("Main init!");
 	printf "Welcome!\n ? (e.g., info)\n";
 	
 	my $command = <STDIN>;
@@ -149,6 +139,14 @@ sub writehtml {
 	# process input template, substituting variables
 	$template->process($tmpl, $vars, $fh)
 		or die $template->error();
+	
+	# move this file and it's upper dir;
+	#my $updir = File::Spec->updir();
+	#llog($updir);
+	#copy($updir, "/_site") or die "$!";
+	# copy just file;
+	#llog($template);
+	#copy($template, "$root_dir/_site/") or die "$!";
 }
 
 sub start {
