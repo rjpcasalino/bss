@@ -21,8 +21,10 @@
 use strict;
 use warnings;
 
+use POSIX qw(strftime);
 use Cwd;
 use File::Find;
+use File::Path qw(make_path remove_tree);
 use Text::Markdown 'markdown';
 use Template;
 use Log::Dispatch;
@@ -31,7 +33,11 @@ use Log::Dispatch::Screen;
 use Getopt::Long qw(GetOptions);
 use Pod::Usage qw(pod2usage);
 
+
+my $debug;
+my $help;
 my $log = Log::Dispatch->new();
+
 $log->add(
     Log::Dispatch::File->new(
         name      => "logfile1",
@@ -52,34 +58,45 @@ $log->add(
         min_level => "info",
     )
 );
- 
-$log->log( level => "info", message => "Discovery Init\n" );
+
+# TODO:
+# only log to file on debug
+sub llog {
+	if ($debug) {
+		$log->log(level => "debug", message => "DEBUG: @_\n");
+	} else {
+		$log->log(level => "info", message => "INFO: @_\n");
+	}
+}
 
 my $root_dir = getcwd;
 
-my $debug;
-my $help;
-
 ## Parse options
-GetOptions("help|?" => \$help, "DEBUG|d" => \$debug) or pod2usage(2);
+GetOptions("HELP|help" => \$help, "DEBUG|debug" => \$debug) or pod2usage(2);
 pod2usage(1) if $help;
 
 main();
 
 sub main {
-	printf "Welcome!\n Enter a command.\n";
 	if ($debug) {
 		my $time = localtime();
-		$log->debug("DEBUG: $time\n");
-		$log->info("!DEBUG MODE!\n");
+		llog("!!!\tDEBUG MODE\t!!!");
+		llog($time);
 	}
+	
+	printf "Welcome!\n ? (e.g., info)\n";
+	
 	my $command = <STDIN>;
-	if ($command =~ /^(s)tart/i) {
+	if ($command =~ /start/i) {
 		find(\&start, $root_dir);
+	} elsif ($command =~ /info/i) {
+		llog("someday there will be some info here.");
 	}
 	print "\n\tRemember!\n\tDon't give in!\n\tNever, never, never give in.\n\n\n...Goodbye and good luck!";
 	exit;
 }
+
+my @posts;
 
 sub writehtml {
 	my $file = $_;
@@ -88,6 +105,7 @@ sub writehtml {
 	    INTERPOLATE  => 1,               # expand "$var" in plain text
 	    POST_CHOMP   => 1,               # cleanup whitespace
 	    EVAL_PERL    => 1,               # evaluate Perl code blocks
+	    RELATIVE => 1		     # used to indicate if templates specified with absolute filename
 	};
 
 	# create Template object
@@ -101,29 +119,31 @@ sub writehtml {
 	open my $line, $file or $log->log_and_die(level => "warning", message => "$!");
 	$file =~ s/\.md$/\.html/;
 	open my $fh, ">", $file or die "open error: $!";
+	my $site_modified = strftime '%c', localtime();
 	while(<$line>) {
-		if ($_ =~ /^:[tl]:/i) {
-			if ($_ =~ /^:[tT]/) {
-				$_ = join("", split(/:[tlTL]:/, $_));
-				$_ =~ tr/:://d;
-				$title = $_;
-				print "Title: $title";
-			} elsif ($_ =~ /^:[lL]/) {
-				$_ = join("", split(/:[tlTL]:/, $_));
-				$_ =~ s/::/\.tmpl/;
-				$tmpl = $_;
-				$tmpl =~ s/^\s*(.*?)\s*$/$1/; # remove white space; ugly
-				print "Template: $_";
-			}
+		if ($_ =~ /^:[tT]/) {
+			$_ = join("", split(/:[tlTL]:/, $_));
+			$_ =~ tr/:://d;
+			llog("Title: $_");
+			$title = $_;
+		} elsif ($_ =~ /^:[lL]/) {
+			$_ = join("", split(/:[tlTL]:/, $_));
+			$_ =~ s/::/\.tmpl/;
+			$tmpl = $_;
+			$tmpl =~ s/^\s*(.*?)\s*$/$1/; # remove white space; ugly
+			llog("Template: $_");
 		} else {
 			push(@body, markdown($_));
 		}
 	}
+
 	
 	my $vars = {
 	    title  => $title,
 	    # \@ notation will return a reference
-	    body => \@body
+	    body => \@body,
+	    site_modified => $site_modified,
+	    posts => \@posts
 	};
 
 	# process input template, substituting variables
@@ -131,18 +151,19 @@ sub writehtml {
 		or die $template->error();
 }
 
-
 sub start {
+    my @site = make_path("$root_dir/_site/");
     if (-d $_ && $_ ne ".") { 
 	    # ignore hidden dirs
-	    $log->info("Sub-directory encountered: $_\n");
+	    llog("Sub-dir: $_");
 	    if (File::Spec -> abs2rel($File::Find::name, $root_dir) =~ /^\./) {
-	    	    $log->info("Ignoring: $File::Find::name\n"); # directory name
+	    	    llog("Ignoring: $File::Find::name"); # directory name
 		    $File::Find::prune = 1;
 	    }
     } elsif ($_ =~ /.md$/) {
-	    $log->info("Processing markdown: $_\n");
 	    writehtml($_);
+    } elsif ($_ =~ /.png|.jpg|.jpeg|.gif|.svg$/i) {
+	    llog("move to _site/static/imgs!");
     }
 }
 
@@ -155,8 +176,8 @@ Discovery - A simple static site generator
 discovery [options] [file ...]
 
      Options:
-       -help|-?|-HELP     prints this help message
-       -d|D|DEBUG         DEBUG mode
+       --help     	 prints this help message
+       --debug   	 DEBUG mode
 
     Commands:
     	start		 builds _site dir
