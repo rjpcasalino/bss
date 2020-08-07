@@ -156,7 +156,8 @@ sub start {
     if (-d $_ && $_ ne ".") { 
 	    # ignore hidden dirs
 	    llog("Sub-dir: $_");
-	    if (File::Spec -> abs2rel($File::Find::name, $root_dir) =~ /^\./) {
+	    # TODO: File::Spec into scalar 
+	    if (File::Spec -> abs2rel($File::Find::name, $root_dir) =~ /^\./ or File::Spec -> abs2rel($File::Find::name, $root_dir) =~ /^_site/) {
 	    	    llog("Ignoring: $File::Find::name"); # directory name
 		    $File::Find::prune = 1;
 	    }
