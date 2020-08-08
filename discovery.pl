@@ -27,7 +27,6 @@ use File::Find;
 use File::Copy;
 use File::Basename;
 use File::Path qw(make_path remove_tree);
-use File::Copy::Recursive qw(fcopy rcopy dircopy fmove rmove dirmove);
 use Text::Markdown 'markdown';
 use Template;
 use Log::Dispatch;
@@ -41,7 +40,6 @@ use autodie;
 
 my $debug;
 my $help;
-my $root_dir = getcwd;
 
 ## Parse options
 GetOptions("HELP|help|h" => \$help, "DEBUG|debug|d" => \$debug) or pod2usage(2);
@@ -74,6 +72,16 @@ if ($debug) {
 	$log->log(level => "debug", message => "!!!\tDEBUG MODE\t!!!\n");
 	$log->log(level => "debug", message =>"$time\n");
 }
+
+my $root = getcwd();
+my $tt_config = {
+    INCLUDE_PATH => "$root/templates",  # or list ref
+    INTERPOLATE  => 1,               # expand "$var" in plain text
+    POST_CHOMP   => 1,               # cleanup whitespace
+    EVAL_PERL    => 1,               # evaluate Perl code blocks
+    RELATIVE => 1		     # used to indicate if templates specified with absolute filename
+};
+
 main();
 
 sub main {
@@ -82,7 +90,8 @@ sub main {
 	
 	my $command = <STDIN>;
 	if ($command =~ /start/i) {
-		find(\&start, $root_dir);
+		 mkdir("_site/") or die "$!";
+		find(\&start, getcwd());
 	} elsif ($command =~ /info/i) {
 		llog("someday there will be some info here.");
 	}
@@ -94,16 +103,9 @@ my @posts;
 
 sub writehtml {
 	my $markdown = $_;
-	my $config = {
-	    INCLUDE_PATH => "/$root_dir/templates",  # or list ref
-	    INTERPOLATE  => 1,               # expand "$var" in plain text
-	    POST_CHOMP   => 1,               # cleanup whitespace
-	    EVAL_PERL    => 1,               # evaluate Perl code blocks
-	    RELATIVE => 1		     # used to indicate if templates specified with absolute filename
-	};
 
 	# create Template object
-	my $template = Template->new($config);
+	my $template = Template->new($tt_config);
 
 	my $title;
 	my @body;
@@ -145,12 +147,10 @@ sub writehtml {
 	# process input template, substituting variables
 	$template->process($tmpl, $vars, $FILEHANDLE)
 		or die $template->error();
-	return $template;
 }
 
 sub start {
-    my @site = make_path("$root_dir/_site/");
-    my $filename = File::Spec -> abs2rel($File::Find::name, $root_dir);
+    my $filename = File::Spec -> abs2rel($File::Find::name, getcwd());
     if (-d $_ && $_ ne ".") { 
 	    llog("Sub-dir: $_");
 	    # TODO: File::Spec into scalar 
@@ -159,13 +159,10 @@ sub start {
 	    	    llog("Ignoring: $File::Find::name"); # directory name
 		    $File::Find::prune = 1;
 	    } else {
-		    llog("dir to bake: $_");
-		    llog("filename: $filename");
-		    make_path("$root_dir/_site/$filename");
-		    #dircopy($_, "$root_dir/_site/$_") or die "$!";
+		    llog("dir to rsync: $_");
 	    }
     } elsif ($_ =~ /.md$/) {
-	    writehtml($_, $File::find::name);
+	    writehtml($_, $tt_config);
     } elsif ($_ =~ /.png|.jpg|.jpeg|.gif|.svg$/i) {
 	    llog("move to _site/static/imgs!");
     }
