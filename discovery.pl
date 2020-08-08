@@ -93,15 +93,13 @@ sub main {
 my @posts;
 
 sub writehtml {
-	my ($markdown, $dirname) = @_;
-	llog("MD:$markdown DIR: $dirname");
+	my $markdown = $_;
 	my $config = {
 	    INCLUDE_PATH => "/$root_dir/templates",  # or list ref
 	    INTERPOLATE  => 1,               # expand "$var" in plain text
 	    POST_CHOMP   => 1,               # cleanup whitespace
 	    EVAL_PERL    => 1,               # evaluate Perl code blocks
-	    RELATIVE => 1,		     # used to indicate if templates specified with absolute filename
-	    OUTPUT_PATH => "/$root_dir/_site/$dirname"
+	    RELATIVE => 1		     # used to indicate if templates specified with absolute filename
 	};
 
 	# create Template object
