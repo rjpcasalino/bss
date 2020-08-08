@@ -90,7 +90,6 @@ sub main {
 	
 	my $command = <STDIN>;
 	if ($command =~ /start/i) {
-		 mkdir("_site/") or die "$!";
 		find(\&start, getcwd());
 	} elsif ($command =~ /info/i) {
 		llog("someday there will be some info here.");
@@ -158,14 +157,13 @@ sub start {
 	    if ($filename =~ /^\./ or $filename =~ /^_site/ or $filename =~ /^templates/) {
 	    	    llog("Ignoring: $File::Find::name"); # directory name
 		    $File::Find::prune = 1;
-	    } else {
-		    llog("dir to rsync: $_");
 	    }
     } elsif ($_ =~ /.md$/) {
 	    writehtml($_, $tt_config);
     } elsif ($_ =~ /.png|.jpg|.jpeg|.gif|.svg$/i) {
 	    llog("move to _site/static/imgs!");
     }
+    exec "rsync -arv --exclude='*.md' --exclude='templates' . _site";
 }
 
 =head1 NAME
