@@ -25,7 +25,9 @@ use POSIX qw(strftime);
 use Cwd;
 use File::Find;
 use File::Copy;
+use File::Basename;
 use File::Path qw(make_path remove_tree);
+use File::Copy::Recursive qw(fcopy rcopy dircopy fmove rmove dirmove);
 use Text::Markdown 'markdown';
 use Template;
 use Log::Dispatch;
@@ -33,6 +35,8 @@ use Log::Dispatch::File;
 use Log::Dispatch::Screen;
 use Getopt::Long qw(GetOptions);
 use Pod::Usage qw(pod2usage);
+# TODO: research
+use autodie;
 
 
 my $debug;
@@ -57,11 +61,11 @@ $log->add(
 # TODO:
 # only log to file on debug
 sub llog {
-	my ($oblig_msg) = @_;
+	my ($msg) = @_;
 	if (defined $debug) {
-		$log->log(level => "debug", message => "DEBUG: $oblig_msg\n");
+		$log->log(level => "debug", message => "DEBUG: $msg\n");
 	} else {
-		$log->log(level => "info", message => "INFO: $oblig_msg\n");
+		$log->log(level => "info", message => "INFO: $msg\n");
 	}
 }
 
@@ -89,13 +93,15 @@ sub main {
 my @posts;
 
 sub writehtml {
-	my $file = $_;
+	my ($markdown, $dirname) = @_;
+	llog("MD:$markdown DIR: $dirname");
 	my $config = {
 	    INCLUDE_PATH => "/$root_dir/templates",  # or list ref
 	    INTERPOLATE  => 1,               # expand "$var" in plain text
 	    POST_CHOMP   => 1,               # cleanup whitespace
 	    EVAL_PERL    => 1,               # evaluate Perl code blocks
-	    RELATIVE => 1		     # used to indicate if templates specified with absolute filename
+	    RELATIVE => 1,		     # used to indicate if templates specified with absolute filename
+	    OUTPUT_PATH => "/$root_dir/_site/$dirname"
 	};
 
 	# create Template object
@@ -106,9 +112,11 @@ sub writehtml {
 
 	my $tmpl;
 	# TODO: log and die prints to screen twice? why...
-	open my $line, $file or $log->log_and_die(level => "warning", message => "$!");
-	$file =~ s/\.md$/\.html/;
-	open my $fh, ">", $file or die "open error: $!";
+	open my $line, $markdown or $log->log_and_die(level => "warning", message => "$!");
+	$markdown =~ s/\.md$/\.html/;
+	my $html = $markdown;
+	# TODO: utf-8 file encoding...
+	open my $FILEHANDLE, ">", $html or die "open error: $!";
 	my $site_modified = strftime '%c', localtime();
 	while(<$line>) {
 		if ($_ =~ /^:[tT]/) {
@@ -137,30 +145,29 @@ sub writehtml {
 	};
 
 	# process input template, substituting variables
-	$template->process($tmpl, $vars, $fh)
+	$template->process($tmpl, $vars, $FILEHANDLE)
 		or die $template->error();
-	
-	# move this file and it's upper dir;
-	#my $updir = File::Spec->updir();
-	#llog($updir);
-	#copy($updir, "/_site") or die "$!";
-	# copy just file;
-	#llog($template);
-	#copy($template, "$root_dir/_site/") or die "$!";
+	return $template;
 }
 
 sub start {
     my @site = make_path("$root_dir/_site/");
+    my $filename = File::Spec -> abs2rel($File::Find::name, $root_dir);
     if (-d $_ && $_ ne ".") { 
-	    # ignore hidden dirs
 	    llog("Sub-dir: $_");
 	    # TODO: File::Spec into scalar 
-	    if (File::Spec -> abs2rel($File::Find::name, $root_dir) =~ /^\./ or File::Spec -> abs2rel($File::Find::name, $root_dir) =~ /^_site/) {
+	    # ignore hidden dirs
+	    if ($filename =~ /^\./ or $filename =~ /^_site/ or $filename =~ /^templates/) {
 	    	    llog("Ignoring: $File::Find::name"); # directory name
 		    $File::Find::prune = 1;
+	    } else {
+		    llog("dir to bake: $_");
+		    llog("filename: $filename");
+		    make_path("$root_dir/_site/$filename");
+		    #dircopy($_, "$root_dir/_site/$_") or die "$!";
 	    }
     } elsif ($_ =~ /.md$/) {
-	    writehtml($_);
+	    writehtml($_, $File::find::name);
     } elsif ($_ =~ /.png|.jpg|.jpeg|.gif|.svg$/i) {
 	    llog("move to _site/static/imgs!");
     }
