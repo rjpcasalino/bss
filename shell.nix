@@ -1,7 +1,7 @@
 { pkgs ? import <nixpkgs> {}
 }:
 pkgs.mkShell {
-  name = "dev-discovery";
+  name = "boring";
   buildInputs = [
     pkgs.perl # important!
     pkgs.perlPackages.TextMarkdown 
