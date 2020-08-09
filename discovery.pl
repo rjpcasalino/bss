@@ -76,7 +76,7 @@ if ($debug) {
 my $root = getcwd();
 my $tt_config = {
     INCLUDE_PATH => "$root/templates",  # or list ref
-    INTERPOLATE  => 1,               # expand "$var" in plain text
+    INTERPOLATE  => 0,               # expand "$var" in plain text
     POST_CHOMP   => 1,               # cleanup whitespace
     EVAL_PERL    => 1,               # evaluate Perl code blocks
     RELATIVE => 1		     # used to indicate if templates specified with absolute filename
@@ -91,6 +91,8 @@ sub main {
 	my $command = <STDIN>;
 	if ($command =~ /start/i) {
 		find(\&start, getcwd());
+		# TODO: maybe a bad idea?
+    		system "rm -rf _site/ && rsync -arv --exclude='*.md' --exclude='templates' . _site";
 	} elsif ($command =~ /info/i) {
 		llog("someday there will be some info here.");
 	}
@@ -133,8 +135,6 @@ sub writehtml {
 			push(@body, markdown($_));
 		}
 	}
-
-	
 	my $vars = {
 	    title  => $title,
 	    # \@ notation will return a reference
@@ -163,7 +163,6 @@ sub start {
     } elsif ($_ =~ /.png|.jpg|.jpeg|.gif|.svg$/i) {
 	    llog("move to _site/static/imgs!");
     }
-    exec "rsync -arv --exclude='*.md' --exclude='templates' . _site";
 }
 
 =head1 NAME
