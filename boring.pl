@@ -89,8 +89,8 @@ sub main {
 	printf "Welcome!\n ? (e.g., info)\n";
 	
 	my $command = <STDIN>;
-	if ($command =~ /start/i) {
-		find(\&start, getcwd());
+	if ($command =~ /build/i) {
+		find(\&build, getcwd());
 		# TODO: maybe a bad idea?
     		system "rm -rf _site/ && rsync -arv --exclude='*.md' --exclude='templates' . _site";
 	} elsif ($command =~ /info/i) {
@@ -148,7 +148,7 @@ sub writehtml {
 		or die $template->error();
 }
 
-sub start {
+sub build {
     my $filename = File::Spec -> abs2rel($File::Find::name, getcwd());
     if (-d $_ && $_ ne ".") { 
 	    llog("Sub-dir: $_");
@@ -167,17 +167,16 @@ sub start {
 
 =head1 NAME
 
-Discovery - A simple static site generator 
+boring static site generator - a simple static site generator 
 
 =head1 SYNOPSIS
 
-discovery [options] [file ...]
+boring [options] [file ...]
 
      Options:
        --help     	 prints this help message
        --debug   	 DEBUG mode
 
     Commands:
-    	start		 builds _site dir
-	server		 builds _site dir and serves it
-	stats            get some stats (e.g., how many pages)
+    	build		 builds _site dir
+	serve		 builds _site dir and serves it
