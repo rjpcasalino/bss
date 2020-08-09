@@ -3,10 +3,12 @@
 [% INCLUDE $header %]
 
  <body>
-   <h1>$title</h1>
+   <h1>[% title %]</h1>
     <hr>
     <div>
-	$body
+    [% FOREACH part IN body %]
+	<p>[% part %]</p>
+    [% END %]
     </div>
 
 [% INCLUDE $footer %]

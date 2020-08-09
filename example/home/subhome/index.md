@@ -1,5 +1,5 @@
 :T:SUBHOME::
-:L:basic::
+:L:default::
 
 # HOME
 
