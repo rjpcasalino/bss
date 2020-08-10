@@ -85,7 +85,7 @@ main();
 
 sub main {
 	my $dirname = getcwd();
-	my $manifest = ".manifest";
+	my $manifest = "manifest.ini";
 	say "No manifest found!\n See README" and exit unless -e $manifest;
 	printf "Welcome!\n\nWorking in: $dirname\n";
 	# load manifest;
@@ -103,7 +103,6 @@ sub main {
 	}
 	pod2usage(1);
 	print "\n\tRemember!\n\tDon't give in!\n\tNever, never, never give in.";
-	exit;
 }
 
 sub writehtml {
@@ -152,7 +151,6 @@ sub writehtml {
 
 sub build {
     my $filename = $_;
-    next if $filename eq "." or $filename eq "..";
     if (-d $filename) { 
 	    # ignore certain dirs
 	    if ($_ =~ /^_site/ or $_ =~ /^templates/) {
