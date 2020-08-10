@@ -86,7 +86,7 @@ main();
 sub main {
 	my $dirname = getcwd();
 	my $manifest = ".manifest";
-	say "No manifest file found!\n See README" and exit unless -e $manifest;
+	say "No manifest found!\n See README" and exit unless -e $manifest;
 	printf "Welcome!\n\nWorking in: $dirname\n";
 	# load manifest;
 	$tt_config->{INCLUDE_PATH} = "$dirname/templates";
@@ -97,10 +97,12 @@ sub main {
 		find(\&build, $dirname);
 		# TODO: maybe a bad idea?
     		!system "rm -rf _site/ && rsync -arv --exclude='*.md' --exclude='templates' . _site" or die "system error: $!";
-	} elsif ($command =~ /info/i) {
-		llog("someday there will be some info here.");
+		exit;
+	} elsif ($command =~ /serve/i) {
+		# TODO: make serve work!
 	}
-	print "\n\tRemember!\n\tDon't give in!\n\tNever, never, never give in.\n\n\n...Goodbye and good luck!";
+	pod2usage(1);
+	print "\n\tRemember!\n\tDon't give in!\n\tNever, never, never give in.";
 	exit;
 }
 
