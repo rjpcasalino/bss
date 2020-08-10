@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# Discovery: a simple static site generator 
+# bss - a simple static site generator 
 # Copyright (C) 2020  Ryan Joseph Patrick Casalino
 #
 
@@ -20,6 +20,7 @@
 
 use strict;
 use warnings;
+use feature 'say';
 
 use POSIX qw(strftime);
 use Cwd;
@@ -61,21 +62,19 @@ $log->add(
 sub llog {
 	my ($msg) = @_;
 	if (defined $debug) {
-		$log->log(level => "debug", message => "DEBUG: $msg\n");
+		my $time = localtime();
+		$log->log(level => "debug", message => "DEBUG $time: $msg\n");
 	} else {
 		$log->log(level => "info", message => "INFO: $msg\n");
 	}
 }
 
-my $time = localtime();
 if ($debug) {
 	$log->log(level => "debug", message => "!!!\tDEBUG MODE\t!!!\n");
-	$log->log(level => "debug", message =>"$time\n");
 }
 
-my $root = getcwd();
 my $tt_config = {
-    INCLUDE_PATH => "$root/templates",  # or list ref
+    INCLUDE_PATH => "",  # or list ref
     INTERPOLATE  => 0,               # expand "$var" in plain text
     POST_CHOMP   => 1,               # cleanup whitespace
     EVAL_PERL    => 1,               # evaluate Perl code blocks
@@ -85,14 +84,19 @@ my $tt_config = {
 main();
 
 sub main {
-	llog("Main init!");
-	printf "Welcome!\n ? (e.g., info)\n";
+	my $dirname = getcwd();
+	my $manifest = ".manifest";
+	say "No manifest file found!\n See README" and exit unless -e $manifest;
+	printf "Welcome!\n\nWorking in: $dirname\n";
+	# load manifest;
+	$tt_config->{INCLUDE_PATH} = "$dirname/templates";
 	
+	say "?";
 	my $command = <STDIN>;
 	if ($command =~ /build/i) {
-		find(\&build, getcwd());
+		find(\&build, $dirname);
 		# TODO: maybe a bad idea?
-    		system "rm -rf _site/ && rsync -arv --exclude='*.md' --exclude='templates' . _site";
+    		!system "rm -rf _site/ && rsync -arv --exclude='*.md' --exclude='templates' . _site" or die "system error: $!";
 	} elsif ($command =~ /info/i) {
 		llog("someday there will be some info here.");
 	}
@@ -100,11 +104,8 @@ sub main {
 	exit;
 }
 
-my @posts;
-
 sub writehtml {
 	my $markdown = $_;
-
 	# create Template object
 	my $template = Template->new($tt_config);
 
@@ -117,7 +118,7 @@ sub writehtml {
 	$markdown =~ s/\.md$/\.html/;
 	my $html = $markdown;
 	# TODO: utf-8 file encoding...
-	open my $FILEHANDLE, ">", $html or die "open error: $!";
+	open my $FH, ">", $html or die "open error: $!";
 	my $site_modified = strftime '%c', localtime();
 	while(<$line>) {
 		if ($_ =~ /^:[tT]/) {
@@ -139,29 +140,27 @@ sub writehtml {
 	    title  => $title,
 	    # \@ notation will return a reference
 	    body => \@body,
-	    site_modified => $site_modified,
-	    posts => \@posts
+	    site_modified => $site_modified
 	};
 
 	# process input template, substituting variables
-	$template->process($tmpl, $vars, $FILEHANDLE)
+	$template->process($tmpl, $vars, $FH)
 		or die $template->error();
 }
 
 sub build {
-    my $filename = File::Spec -> abs2rel($File::Find::name, getcwd());
-    if (-d $_ && $_ ne ".") { 
-	    llog("Sub-dir: $_");
-	    # TODO: File::Spec into scalar 
-	    # ignore hidden dirs
-	    if ($filename =~ /^\./ or $filename =~ /^_site/ or $filename =~ /^templates/) {
+    my $filename = $_;
+    next if $filename eq "." or $filename eq "..";
+    if (-d $filename) { 
+	    # ignore certain dirs
+	    if ($_ =~ /^_site/ or $_ =~ /^templates/) {
 	    	    llog("Ignoring: $File::Find::name"); # directory name
 		    $File::Find::prune = 1;
 	    }
     } elsif ($_ =~ /.md$/) {
 	    writehtml($_, $tt_config);
     } elsif ($_ =~ /.png|.jpg|.jpeg|.gif|.svg$/i) {
-	    llog("move to _site/static/imgs!");
+	    llog("TODO: move img files to _site/static/imgs!");
     }
 }
 
@@ -171,7 +170,7 @@ boring static site generator - a simple static site generator
 
 =head1 SYNOPSIS
 
-boring [options] [file ...]
+bss [options] [file ...]
 
      Options:
        --help     	 prints this help message
