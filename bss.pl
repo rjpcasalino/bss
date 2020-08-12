@@ -22,30 +22,28 @@ use strict;
 use warnings;
 use feature 'say';
 
-use POSIX qw(strftime);
+use autodie;
+use Config::IniFiles;
 use Cwd;
+use POSIX qw(strftime);
 use File::Find;
-use File::Copy;
+use File::Copy qw(move);
 use File::Basename;
 use File::Path qw(make_path remove_tree);
-use Text::Markdown 'markdown';
-use Template;
+use Getopt::Long qw(GetOptions);
 use Log::Dispatch;
 use Log::Dispatch::File;
 use Log::Dispatch::Screen;
-use Getopt::Long qw(GetOptions);
+use POSIX qw(strftime);
 use Pod::Usage qw(pod2usage);
-# TODO: research
-use autodie;
-
+use Text::Markdown 'markdown';
+use Template;
 
 my $debug;
 my $help;
 
-## Parse options
 GetOptions("HELP|help|h" => \$help, "DEBUG|debug|d" => \$debug) or pod2usage(2);
 pod2usage(1) if $help;
-
 
 ## Log options
 my $log = Log::Dispatch->new();
@@ -84,25 +82,42 @@ my $tt_config = {
 main();
 
 sub main {
-	my $dirname = getcwd();
 	my $manifest = "manifest.ini";
 	say "No manifest found!\n See README" and exit unless -e $manifest;
-	printf "Welcome!\n\nWorking in: $dirname\n";
+	
 	# load manifest;
-	$tt_config->{INCLUDE_PATH} = "$dirname/templates";
+	$manifest = Config::IniFiles->new( -file => "manifest.ini" );
+	
+	my $src = File::Spec->rel2abs($manifest->val("build", "src"));
+	my $dest = File::Spec->rel2abs($manifest->val("build", "dest"));
+	my $tt_dir = $manifest->val("build", "templates_dir");
+	my $watch = $manifest->val("build", "watch");
+	say "Welcome!\nWorking in: $src\nDest: $dest";
+	say "Layouts/Templates: $src/$tt_dir";
+	say "Watch? $watch";
+	# set template toolkit PATH 
+	$tt_config->{INCLUDE_PATH} = "$src/$tt_dir";
+
+	# server
+	my $port = $manifest->val("server", "port");
+	my $host = $manifest->val("server", "host");
+	say "PORT: $port";
+	say "HOST: $host";
 	
 	say "?";
 	my $command = <STDIN>;
 	if ($command =~ /build/i) {
-		find(\&build, $dirname);
+		find(\&build, $src);
 		# TODO: maybe a bad idea?
-    		!system "rm -rf _site/ && rsync -arv --exclude='*.md' --exclude='templates' . _site" or die "system error: $!";
+    		!system "rm -rf $dest && rsync -arv --exclude='*.md' --exclude='$tt_dir' $src $dest" or die "system error: $!";
+		# rename src
+		move "$dest/src", "$dest/www";
 		exit;
 	} elsif ($command =~ /serve/i) {
 		# TODO: make serve work!
 	}
 	pod2usage(1);
-	print "\n\tRemember!\n\tDon't give in!\n\tNever, never, never give in.";
+	say "\n\tRemember!\n\tDon't give in!\n\tNever, never, never give in.";
 }
 
 sub writehtml {
