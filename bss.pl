@@ -32,6 +32,7 @@ use File::Copy qw(move);
 use File::Basename;
 use File::Path qw(make_path remove_tree);
 use Getopt::Long qw(GetOptions);
+use IO::File;
 use Log::Dispatch;
 use Log::Dispatch::File;
 use Log::Dispatch::Screen;
@@ -89,7 +90,10 @@ sub handle_request {
 		print "Received POST request at $timestamp";
 	}
 	else {
-		print "Good night or good morning? $timestamp";
+		my $fh = IO::File->new();
+		my $home = getcwd();
+		$fh->open("$home/_site/www/index.html") or die "$!";
+		## TODO: make this work :-)
 	}
 }
 
