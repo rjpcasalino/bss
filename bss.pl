@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
+package bss;
 
 use strict;
 use warnings;
@@ -38,6 +39,7 @@ use POSIX qw(strftime);
 use Pod::Usage qw(pod2usage);
 use Text::Markdown 'markdown';
 use Template;
+use base qw(HTTP::Server::Simple::CGI);
 
 my $debug;
 my $help;
@@ -79,6 +81,18 @@ my $tt_config = {
     RELATIVE => 1		     # used to indicate if templates specified with absolute filename
 };
 
+sub handle_request {
+	my ($self, $cgi) = @_;
+	my $method = $ENV{REQUEST_METHOD};
+	my $timestamp = time();
+	if (lc($method) eq 'post') {
+		print "Received POST request at $timestamp";
+	}
+	else {
+		print "Good night or good morning? $timestamp";
+	}
+}
+
 main();
 
 sub main {
@@ -113,8 +127,9 @@ sub main {
 		# rename src
 		move "$dest/src", "$dest/www";
 		exit;
-	} elsif ($command =~ /serve/i) {
-		# TODO: make serve work!
+	} elsif ($command =~ /server/i) {
+		my $server = bss->new($port);
+		$server->run();
 	}
 	pod2usage(1);
 	say "\n\tRemember!\n\tDon't give in!\n\tNever, never, never give in.";
