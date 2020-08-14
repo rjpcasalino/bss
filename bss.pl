@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
+
 package bss;
 
 use strict;
@@ -79,7 +80,8 @@ my $tt_config = {
     INTERPOLATE  => 0,               # expand "$var" in plain text
     POST_CHOMP   => 1,               # cleanup whitespace
     EVAL_PERL    => 1,               # evaluate Perl code blocks
-    RELATIVE => 1		     # used to indicate if templates specified with absolute filename
+    RELATIVE => 1,    # used to indicate if templates specified with absolute filename
+    ENCODING => ""
 };
 
 sub handle_request {
@@ -104,17 +106,23 @@ sub main {
 	say "No manifest found!\n See README" and exit unless -e $manifest;
 	
 	# load manifest;
-	$manifest = Config::IniFiles->new( -file => "manifest.ini" );
+	$manifest = Config::IniFiles->new(-file => "manifest.ini");
 	
 	my $src = File::Spec->rel2abs($manifest->val("build", "src"));
 	my $dest = File::Spec->rel2abs($manifest->val("build", "dest"));
-	my $tt_dir = $manifest->val("build", "templates_dir");
+	my $tt_dir = File::Spec->rel2abs($manifest->val("build", "templates_dir"));
 	my $watch = $manifest->val("build", "watch");
+	my $exclude = $manifest->val("build", "exclude");
+	my $encoding = $manifest->val("build", "encoding");
 	say "Welcome!\nWorking in: $src\nDest: $dest";
-	say "Layouts/Templates: $src/$tt_dir";
+	say "Layouts/Templates: $tt_dir";
 	say "Watch? $watch";
+	say "Excluding: $exclude";
+	say "Encoding: $encoding";
 	# set template toolkit PATH 
-	$tt_config->{INCLUDE_PATH} = "$src/$tt_dir";
+	$tt_config->{INCLUDE_PATH} = "$tt_dir";
+	$tt_config->{ENCODING} = "$encoding";
+	say $tt_config->{'ENCODING'};
 
 	# server
 	my $port = $manifest->val("server", "port");
@@ -126,10 +134,14 @@ sub main {
 	my $command = <STDIN>;
 	if ($command =~ /build/i) {
 		find(\&build, $src);
-		# TODO: maybe a bad idea?
-    		!system "rm -rf $dest && rsync -arv --exclude='*.md' --exclude='$tt_dir' $src $dest" or die "system error: $!";
-		# rename src
+		# TODO: maybe a bad idea to rm dest?
+		# note: rsync exclude w/ brace expansion: `{}` - only works in bash not sh
+		# TODO: fallback to work in sh
+    		!system "rm -rf $dest && rsync -arv --exclude={$exclude} --exclude='$tt_dir' $src $dest" or die "system error: $!";
+		# rename src like one would see in apache /www/html...
 		move "$dest/src", "$dest/www";
+		## remove compiled *.html files; can ttoolkit do this itself?
+		find(\&clean, $src);
 		exit;
 	} elsif ($command =~ /server/i) {
 		my $server = bss->new($port);
@@ -148,12 +160,11 @@ sub writehtml {
 	my @body;
 
 	my $tmpl;
-	# TODO: log and die prints to screen twice? why...
 	open my $line, $markdown or $log->log_and_die(level => "warning", message => "$!");
 	$markdown =~ s/\.md$/\.html/;
 	my $html = $markdown;
 	# TODO: utf-8 file encoding...
-	open my $FH, ">", $html or die "open error: $!";
+	open my $FH, ">:encoding($tt_config->{'ENCODING'})", $html or die "open error: $!";
 	my $site_modified = strftime '%c', localtime();
 	while(<$line>) {
 		if ($_ =~ /^:[tT]/) {
@@ -195,6 +206,18 @@ sub build {
 	    writehtml($_, $tt_config);
     } elsif ($_ =~ /.png|.jpg|.jpeg|.gif|.svg$/i) {
 	    llog("TODO: move img files to _site/static/imgs!");
+    }
+}
+
+sub clean {
+    my $filename = $_;
+    if (-d $filename) { 
+	    if ($_ =~ /^_site/ or $_ =~ /^templates/) {
+	    	    llog("Ignoring: $File::Find::name");
+		    $File::Find::prune = 1;
+	    }
+    } elsif ($_ =~ /.html$/) {
+    	unlink($_);
     }
 }
 
