@@ -1,29 +1,29 @@
-*this is a work in progess!*
+*this is a work in progress!*
 
 bss - boring static site generator
 
 + Getting Started
 	bss reads the manifest.ini for configuration options:
 	
-	```
+	Please note the lack of quotes in the ini:
 
+	```
 	[build]
 	src=src/
 	dest=_site/
 	templates_dir=templates
-	show_drafts=false
 	watch=false
 
 	safe=false
-	include=[""]
-	exclude=["_site", "*.md"]
-	encoding="utf-8"
-	markdown_ext="markdown,mkdown,mkdn,mkd,md"
-
-	show_drafts=false
+	include=
+	exclude=*.md
+	encoding=utf-8
+	markdown_ext=markdown,mkdown,mkdn,mkd,md
 
 	[server]
 	port=1988
 	host=127.0.0.1
 
 	```
+
+A simple web server is included but one would be wise in using it only for local development purposes.
