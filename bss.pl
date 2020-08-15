@@ -36,9 +36,8 @@ use Getopt::Long qw(GetOptions);
 use IO::File;
 use POSIX qw(strftime);
 use Pod::Usage qw(pod2usage);
-use Text::Markdown 'markdown';
+use Text::Markdown qw(markdown);
 use Template;
-use base qw(HTTP::Server::Simple::CGI);
 
 my $Verbose = $ENV{VERBOSE} // 0;
 my $help;
