@@ -68,6 +68,7 @@ sub main {
 	my $watch = $manifest->val("build", "watch");
 	my $exclude = $manifest->val("build", "exclude");
 	my $encoding = $manifest->val("build", "encoding");
+
 	say "Welcome!\nWorking in: $src\nDest: $dest" if $Verbose;
 	say "Layouts/Templates: $tt_dir" if $Verbose;
 	say "Watch? $watch" if $Verbose;
@@ -80,10 +81,11 @@ sub main {
 	$tt_config->{ENCODING} = "$encoding";
 
 	# server
-	my $port = $manifest->val("server", "port");
-	my $host = $manifest->val("server", "host");
-	say "PORT: $port";
-	say "HOST: $host";
+	my $port //= $manifest->val("server", "port") // "4000";
+	my $host //= $manifest->val("server", "host") // "localhost";
+	say "Server:
+	PORT: $port
+	HOST: $host" if $Verbose;
 	
 	say "?";
 	my $command = <STDIN>;
@@ -99,23 +101,21 @@ sub main {
 		find(\&clean, $src);
 		exit;
 	} elsif ($command =~ /server/i) {
-		my $server = bss->new($port);
-		$server->run();
+		# TODO
 	}
 	pod2usage(1);
-	say "\n\tRemember!\n\tDon't give in!\n\tNever, never, never give in.";
 }
 
 sub writehtml {
 	my $markdown = $_;
 	my $line;
-	# create Template object
+	
 	my $template = Template->new($tt_config);
+	my $layout; 
 
 	my $title;
 	my @body;
 
-	my $tmpl;
 	open $line, $markdown;
 	$markdown =~ s/\.md$/\.html/;
 	while(<$line>) {
@@ -127,9 +127,9 @@ sub writehtml {
 		} elsif ($_ =~ /^:[lL]/) {
 			$_ = join("", split(/:[tlTL]:/, $_));
 			$_ =~ s/::/\.tmpl/;
-			$tmpl = $_;
-			$tmpl =~ s/^\s*(.*?)\s*$/$1/; # remove white space; ugly
-			say "Template: $_" if $Verbose;
+			$layout = $_;
+			$layout =~ s/^\s*(.*?)\s*$/$1/; # remove white space; ugly
+			say "Layout $_" if $Verbose;
 		} else {
 			push(@body, markdown($_));
 		}
@@ -140,20 +140,19 @@ sub writehtml {
 	
 	my $vars = {
 	    title  => $title,
-	    # \@ notation will return a reference
 	    body => \@body,
 	    site_modified => $site_modified
 	};
 	
 	# process input template, substituting variables
-	$template->process($tmpl, $vars, $FH)
+	$template->process($layout, $vars, $FH)
 		or die $template->error();
 }
 
 sub build {
     my $filename = $_;
     if (-d $filename) { 
-	    # ignore certain dirs
+	    # ignore these dirs always:
 	    if ($_ =~ /^_site/ or $_ =~ /^templates/) {
 	    	    say "Ignoring: $File::Find::name" if $Verbose; # directory name
 		    $File::Find::prune = 1;
@@ -161,7 +160,7 @@ sub build {
     } elsif ($_ =~ /.md$/) {
 	    writehtml($_, $tt_config);
     } elsif ($_ =~ /.png|.jpg|.jpeg|.gif|.svg$/i) {
-	    llog("TODO: move img files to _site/static/imgs!");
+	    # TODO
     }
 }
 
@@ -185,11 +184,11 @@ boring static site generator - a simple static site generator
 
 =head1 SYNOPSIS
 
-bss [options] [file ...]
+[env] bss [options] [file ...]
 
      Options:
        --help     	 prints this help message
 
     Commands:
     	build		 builds _site dir
-	serve		 builds _site dir and serves it
+	server		 builds _site dir and serves it

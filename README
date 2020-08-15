@@ -3,9 +3,9 @@
 bss - boring static site generator
 
 + Getting Started
-	bss reads the manifest.ini for configuration options:
-	
-	Please note the lack of quotes in the ini:
+	VERBOSE=1 will make bss talkative.
+
+	bss reads a manifest.ini for configuration options.
 
 	```
 	[build]
@@ -25,5 +25,6 @@ bss - boring static site generator
 	host=127.0.0.1
 
 	```
+	Please note the lack of quotes in values.
 
 A simple web server is included but one would be wise in using it only for local development purposes.
