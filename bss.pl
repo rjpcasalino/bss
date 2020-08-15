@@ -26,7 +26,7 @@ use feature 'say';
 
 use autodie;
 use Config::IniFiles;
-use Cwd;
+use Cwd qw(abs_path realpath);
 use POSIX qw(strftime);
 use File::Find;
 use File::Copy qw(move);
@@ -61,10 +61,9 @@ sub main {
 	
 	# load manifest;
 	$manifest = Config::IniFiles->new(-file => "manifest.ini");
-	
-	my $src = File::Spec->rel2abs($manifest->val("build", "src"));
-	my $dest = File::Spec->rel2abs($manifest->val("build", "dest"));
-	my $tt_dir = File::Spec->rel2abs($manifest->val("build", "templates_dir"));
+	my $src = abs_path $manifest->val("build", "src");
+	my $dest = abs_path $manifest->val("build", "dest");
+	my $tt_dir = realpath $manifest->val("build", "templates_dir");
 	my $watch = $manifest->val("build", "watch");
 	my $exclude = $manifest->val("build", "exclude");
 	my $encoding = $manifest->val("build", "encoding");
