@@ -97,7 +97,7 @@ sub main {
 		find(\&build, $src);
 		# note: rsync exclude w/ brace expansion: `{}` - only works in bash not sh
     		system "rm", "-rf", $dest;
-		# TODO: filter rules... :-( 
+		# TODO: read up on rsync filter rules
 		system "rsync", "-avm", "--exclude=$exclude", $src, $dest;
 		# rename src like one would see in apache /www/html...
 		move "$dest/src", "$dest/www";
