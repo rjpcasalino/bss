@@ -62,7 +62,8 @@ sub main {
 	# load manifest;
 	$manifest = Config::IniFiles->new(-file => "manifest.ini");
 	my $src = abs_path $manifest->val("build", "src");
-	my $dest = abs_path $manifest->val("build", "dest");
+	my $dest = $manifest->val("build", "dest");
+	mkdir($dest) unless -e $dest;
 	my $tt_dir = realpath $manifest->val("build", "templates_dir");
 	my $watch = $manifest->val("build", "watch");
 	my $exclude = $manifest->val("build", "exclude");
@@ -94,10 +95,10 @@ sub main {
 	my $command = <STDIN>;
 	if ($command =~ /build/i) {
 		find(\&build, $src);
-		# TODO: maybe a bad idea to rm dest?
 		# note: rsync exclude w/ brace expansion: `{}` - only works in bash not sh
-		# TODO: fallback to work in sh
-    		!system "rm -rf $dest && rsync -arv --exclude={$exclude} --exclude='$tt_dir' $src $dest" or die "system error: $!";
+    		system "rm", "-rf", $dest;
+		# TODO: filter rules... :-( 
+		system "rsync", "-avm", "--exclude=$exclude", $src, $dest;
 		# rename src like one would see in apache /www/html...
 		move "$dest/src", "$dest/www";
 		## remove compiled *.html files; can ttoolkit do this itself?
