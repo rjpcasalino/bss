@@ -28,3 +28,18 @@ bss - boring static site generator
 	Please note the lack of quotes in values.
 
 A simple web server is included but one would be wise in using it only for local development purposes.
+
+## TODO
+
+- [] Collections, or content or posts...
+	- users need a way to enumerate over some list
+- [] lib/webserver
+- [] handle images
+- [] handle js
+- [] tests
+- [] make.pl 
+- [] HTML tidy
+	- for cleanup
+- [] watch
+	- dev has notify.pl
+- [x] system call with params
