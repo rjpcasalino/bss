@@ -57,7 +57,7 @@ my $tt_config = {
 
 sub main {
 	my $manifest = "manifest.ini";
-	say "No manifest found!\n See README" and exit unless -e $manifest;
+	say "No manifest found!\n See README." and exit unless -e $manifest;
 	
 	# load manifest;
 	$manifest = Config::IniFiles->new(-file => "manifest.ini");
@@ -68,25 +68,29 @@ sub main {
 	my $watch = $manifest->val("build", "watch");
 	my $exclude = $manifest->val("build", "exclude");
 	my $encoding = $manifest->val("build", "encoding");
+	# server
+	my $port //= $manifest->val("server", "port") // "4000";
+	my $host //= $manifest->val("server", "host") // "localhost";
 
-	say "Welcome!\nWorking in: $src\nDest: $dest" if $Verbose;
-	say "Layouts/Templates: $tt_dir" if $Verbose;
-	say "Watch? $watch" if $Verbose;
-	say "Excluding: $exclude" if $Verbose;
-	say "Encoding: $encoding" if $Verbose;
+	my $greeting = "Hello! Bonjour! Welcome!";
+
+	say "$greeting\n
+		Working in: $src
+	     	Dest: $dest
+	     	Layouts/Templates: $tt_dir
+	     	Watch? $watch
+	     	Excluding: $exclude
+	     	Encoding: $encoding
+		Server -
+		 PORT:$port
+		 HOST:$host" 
+	if $Verbose;
 	
 	# set template toolkit options plus others
 	# e.g., encoding
 	$tt_config->{INCLUDE_PATH} = "$tt_dir";
 	$tt_config->{ENCODING} = "$encoding";
 
-	# server
-	my $port //= $manifest->val("server", "port") // "4000";
-	my $host //= $manifest->val("server", "host") // "localhost";
-	say "Server:
-	PORT: $port
-	HOST: $host" if $Verbose;
-	
 	say "?";
 	my $command = <STDIN>;
 	if ($command =~ /build/i) {
