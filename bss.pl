@@ -60,18 +60,19 @@ sub main {
 	
 	# load manifest;
 	$manifest = Config::IniFiles->new(-file => "manifest.ini");
-	my $src = abs_path $manifest->val("build", "src");
-	my $dest = $manifest->val("build", "dest");
+	my ($src, $dest, $tt_dir, $watch, $exclude, $encoding, $port, $host, $greeting);
+	$src = abs_path $manifest->val("build", "src");
+	$dest = $manifest->val("build", "dest");
 	mkdir($dest) unless -e $dest;
-	my $tt_dir = realpath $manifest->val("build", "templates_dir");
-	my $watch = $manifest->val("build", "watch");
-	my $exclude = $manifest->val("build", "exclude");
-	my $encoding = $manifest->val("build", "encoding");
+	$tt_dir = realpath $manifest->val("build", "templates_dir");
+	$watch = $manifest->val("build", "watch");
+	$exclude = $manifest->val("build", "exclude");
+	$encoding = $manifest->val("build", "encoding");
 	# server
-	my $port //= $manifest->val("server", "port") // "4000";
-	my $host //= $manifest->val("server", "host") // "localhost";
+	$port //= $manifest->val("server", "port") // "4000";
+	$host //= $manifest->val("server", "host") // "localhost";
 
-	my $greeting = "Hello! Bonjour! Welcome!";
+	$greeting = "Hello! Bonjour! Welcome!";
 
 	say "$greeting\n
 		Working in: $src
