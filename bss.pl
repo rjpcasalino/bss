@@ -18,7 +18,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-package bss;
+use v5.10;
 
 use strict;
 use warnings;
@@ -34,72 +34,26 @@ use File::Basename;
 use File::Path qw(make_path remove_tree);
 use Getopt::Long qw(GetOptions);
 use IO::File;
-use Log::Dispatch;
-use Log::Dispatch::File;
-use Log::Dispatch::Screen;
 use POSIX qw(strftime);
 use Pod::Usage qw(pod2usage);
 use Text::Markdown 'markdown';
 use Template;
 use base qw(HTTP::Server::Simple::CGI);
 
-my $debug;
+my $Verbose = $ENV{VERBOSE} // 0;
 my $help;
 
-GetOptions("HELP|help|h" => \$help, "DEBUG|debug|d" => \$debug) or pod2usage(2);
+GetOptions("HELP|help|h" => \$help) or pod2usage(2);
 pod2usage(1) if $help;
 
-## Log options
-my $log = Log::Dispatch->new();
-
-$log->add(
-    Log::Dispatch::Screen->new(
-        name      => "screen_debug",
-        min_level => "debug",
-    )
-);
-
-# TODO:
-# only log to file on debug
-sub llog {
-	my ($msg) = @_;
-	if (defined $debug) {
-		my $time = localtime();
-		$log->log(level => "debug", message => "DEBUG $time: $msg\n");
-	} else {
-		$log->log(level => "info", message => "INFO: $msg\n");
-	}
-}
-
-if ($debug) {
-	$log->log(level => "debug", message => "!!!\tDEBUG MODE\t!!!\n");
-}
-
 my $tt_config = {
-    INCLUDE_PATH => "",  # or list ref
+    INCLUDE_PATH => "",  	     # or list ref
     INTERPOLATE  => 0,               # expand "$var" in plain text
     POST_CHOMP   => 1,               # cleanup whitespace
     EVAL_PERL    => 1,               # evaluate Perl code blocks
-    RELATIVE => 1,    # used to indicate if templates specified with absolute filename
+    RELATIVE => 1,    		     # used to indicate if templates specified with absolute filename
     ENCODING => ""
 };
-
-sub handle_request {
-	my ($self, $cgi) = @_;
-	my $method = $ENV{REQUEST_METHOD};
-	my $timestamp = time();
-	if (lc($method) eq 'post') {
-		print "Received POST request at $timestamp";
-	}
-	else {
-		my $fh = IO::File->new();
-		my $home = getcwd();
-		$fh->open("$home/_site/www/index.html") or die "$!";
-		## TODO: make this work :-)
-	}
-}
-
-main();
 
 sub main {
 	my $manifest = "manifest.ini";
@@ -114,15 +68,16 @@ sub main {
 	my $watch = $manifest->val("build", "watch");
 	my $exclude = $manifest->val("build", "exclude");
 	my $encoding = $manifest->val("build", "encoding");
-	say "Welcome!\nWorking in: $src\nDest: $dest";
-	say "Layouts/Templates: $tt_dir";
-	say "Watch? $watch";
-	say "Excluding: $exclude";
-	say "Encoding: $encoding";
-	# set template toolkit PATH 
+	say "Welcome!\nWorking in: $src\nDest: $dest" if $Verbose;
+	say "Layouts/Templates: $tt_dir" if $Verbose;
+	say "Watch? $watch" if $Verbose;
+	say "Excluding: $exclude" if $Verbose;
+	say "Encoding: $encoding" if $Verbose;
+	
+	# set template toolkit options plus others
+	# e.g., encoding
 	$tt_config->{INCLUDE_PATH} = "$tt_dir";
 	$tt_config->{ENCODING} = "$encoding";
-	say $tt_config->{'ENCODING'};
 
 	# server
 	my $port = $manifest->val("server", "port");
@@ -153,6 +108,7 @@ sub main {
 
 sub writehtml {
 	my $markdown = $_;
+	my $line;
 	# create Template object
 	my $template = Template->new($tt_config);
 
@@ -160,35 +116,35 @@ sub writehtml {
 	my @body;
 
 	my $tmpl;
-	open my $line, $markdown or $log->log_and_die(level => "warning", message => "$!");
+	open $line, $markdown;
 	$markdown =~ s/\.md$/\.html/;
-	my $html = $markdown;
-	# TODO: utf-8 file encoding...
-	open my $FH, ">:encoding($tt_config->{'ENCODING'})", $html or die "open error: $!";
-	my $site_modified = strftime '%c', localtime();
 	while(<$line>) {
 		if ($_ =~ /^:[tT]/) {
 			$_ = join("", split(/:[tlTL]:/, $_));
 			$_ =~ tr/:://d;
-			llog("Title: $_");
+			say "Title: $_" if $Verbose;
 			$title = $_;
 		} elsif ($_ =~ /^:[lL]/) {
 			$_ = join("", split(/:[tlTL]:/, $_));
 			$_ =~ s/::/\.tmpl/;
 			$tmpl = $_;
 			$tmpl =~ s/^\s*(.*?)\s*$/$1/; # remove white space; ugly
-			llog("Template: $_");
+			say "Template: $_" if $Verbose;
 		} else {
 			push(@body, markdown($_));
 		}
 	}
+	my $html = $markdown;
+	open my $FH, ">:encoding($tt_config->{'ENCODING'})", $html or die "open error: $!";
+	my $site_modified = strftime '%c', localtime();
+	
 	my $vars = {
 	    title  => $title,
 	    # \@ notation will return a reference
 	    body => \@body,
 	    site_modified => $site_modified
 	};
-
+	
 	# process input template, substituting variables
 	$template->process($tmpl, $vars, $FH)
 		or die $template->error();
@@ -199,7 +155,7 @@ sub build {
     if (-d $filename) { 
 	    # ignore certain dirs
 	    if ($_ =~ /^_site/ or $_ =~ /^templates/) {
-	    	    llog("Ignoring: $File::Find::name"); # directory name
+	    	    say "Ignoring: $File::Find::name" if $Verbose; # directory name
 		    $File::Find::prune = 1;
 	    }
     } elsif ($_ =~ /.md$/) {
@@ -213,13 +169,15 @@ sub clean {
     my $filename = $_;
     if (-d $filename) { 
 	    if ($_ =~ /^_site/ or $_ =~ /^templates/) {
-	    	    llog("Ignoring: $File::Find::name");
+	    	    say "unlinking: $File::Find::name" if $Verbose;
 		    $File::Find::prune = 1;
 	    }
     } elsif ($_ =~ /.html$/) {
     	unlink($_);
     }
 }
+
+main();
 
 =head1 NAME
 
@@ -231,7 +189,6 @@ bss [options] [file ...]
 
      Options:
        --help     	 prints this help message
-       --debug   	 DEBUG mode
 
     Commands:
     	build		 builds _site dir

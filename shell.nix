@@ -5,9 +5,10 @@ pkgs.mkShell {
   buildInputs = [
     pkgs.perl # important!
     pkgs.perlPackages.ConfigIniFiles
-    pkgs.perlPackages.LogDispatch
+    pkgs.perlPackages.FileSlurp
     pkgs.perlPackages.TextMarkdown 
     pkgs.perlPackages.TemplateToolkit 
+    pkgs.perlPackages.HTTPServerSimple 
     pkgs.rsync
   ];
 }
