@@ -110,7 +110,7 @@ sub main {
 }
 
 sub writehtml {
-	my ($html, %config) = @_;
+	my $html = $_;
 	$html =~ s/\.md$/\.html/;
 	my $template = Template->new($config{TT_CONFIG});
 	my $layout; 
@@ -135,7 +135,7 @@ sub writehtml {
 			push(@body, markdown($_));
 		}
 	}
-	open my $HTML, ">:encoding($config{ENCODING})", $html;
+	open my $HTML, ">", $html;
 	my $site_modified = strftime '%c', localtime();
 	
 	my $vars = {
@@ -157,7 +157,7 @@ sub build {
 		    $File::Find::prune = 1;
 	    }
     } elsif ($_ =~ /.md$/) {
-	    writehtml($_, %config);
+	    writehtml($_);
     } elsif ($_ =~ /.png|.jpg|.jpeg|.gif|.svg$/i) {
 	    # TODO
     }
