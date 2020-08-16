@@ -20,10 +20,7 @@
 
 use v5.10;
 
-use strict;
-use warnings;
 use feature 'say';
-
 use autodie;
 use Config::IniFiles;
 use Cwd qw(abs_path realpath);
