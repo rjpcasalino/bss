@@ -42,6 +42,9 @@ my $help;
 GetOptions("HELP|help|h" => \$help) or pod2usage(2);
 pod2usage(1) if $help;
 
+my $manifest = "manifest.ini";
+say "No manifest found!\n See README." and exit unless -e $manifest;
+
 my $tt_config = {
     INCLUDE_PATH => "",  	     # or list ref
     INTERPOLATE  => 0,               # expand "$var" in plain text
@@ -51,54 +54,56 @@ my $tt_config = {
     ENCODING => ""
 };
 
+# load manifest;
+$manifest = Config::IniFiles->new(-file => "manifest.ini");
+my %config = (
+	TT_CONFIG => $tt_config,
+	TT_DIR => (realpath $manifest->val("build", "templates_dir")),
+	SRC => (abs_path $manifest->val("build", "src")),
+	DEST => $manifest->val("build", "dest"),
+	ENCODING => $manifest->val("build", "encoding"),
+	COLLECTIONS => $manifest->val("build", "collections"),
+	WATCH => $manifest->val("build", "watch"),
+	EXCLUDE => $manifest->val("build", "exclude"),
+	PORT => $manifest->val("server", "port") // "4000",
+	HOST => $manifest->val("server", "host") // "localhost"
+);
+
 sub main {
-	my $manifest = "manifest.ini";
-	say "No manifest found!\n See README." and exit unless -e $manifest;
+	mkdir($config{DEST}) unless -e $config{DEST};
+	# set template toolkit options
+	$config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
 	
-	# load manifest;
-	$manifest = Config::IniFiles->new(-file => "manifest.ini");
-	my ($src, $dest, $tt_dir, $watch, $exclude, $encoding, $port, $host, $greeting);
-	$src = abs_path $manifest->val("build", "src");
-	$dest = $manifest->val("build", "dest");
-	mkdir($dest) unless -e $dest;
-	$tt_dir = realpath $manifest->val("build", "templates_dir");
-	$watch = $manifest->val("build", "watch");
-	$exclude = $manifest->val("build", "exclude");
-	$encoding = $manifest->val("build", "encoding");
-	# server
-	$port //= $manifest->val("server", "port") // "4000";
-	$host //= $manifest->val("server", "host") // "localhost";
+	foreach $key (sort keys %config) {
+		$value = $config{$key};
+		say "$key => $value" if $Verbose;
+	}
 
-	$greeting = "Hello! Bonjour! Welcome!";
-
-	say "$greeting\n
-		Working in: $src
-	     	Dest: $dest
-	     	Layouts/Templates: $tt_dir
-	     	Watch? $watch
-	     	Excluding: $exclude
-	     	Encoding: $encoding
+	$greeting = "hello! bonjour! welcome!";
+	say "
+		$greeting
+		Working in: $config{SRC}
+	     	Dest: $config{DEST}
+	     	Layouts/Templates: $config{TT_DIR}
+	     	Watch? $config{WATCH}
+	     	Excluding: $config{EXCLUDE}
+	     	Encoding: $config{ENCODING}
 		Server -
-		 PORT:$port
-		 HOST:$host" 
+		 PORT:$config{PORT}
+		 HOST:$config{HOST}
+		 "
 	if $Verbose;
 	
-	# set template toolkit options plus others
-	# e.g., encoding
-	$tt_config->{INCLUDE_PATH} = "$tt_dir";
-	$tt_config->{ENCODING} = "$encoding";
-
 	say "?";
 	my $command = <STDIN>;
 	if ($command =~ /build/i) {
-		find(\&build, $src);
-    		system "rm", "-rf", $dest;
+		find(\&build, $config{SRC});
+    		system "rm", "-rf", $config{DEST};
 		# TODO: read up on rsync filter rules
-		system "rsync", "-avm", "--exclude=$exclude", $src, $dest;
-		# rename src like one would see in apache /www/html...
-		move "$dest/src", "$dest/www";
+		system "rsync", "-avm", "--exclude=$config{EXCLUDE}", $config{SRC}, $config{DEST};
+		move "$config{DEST}/src", "$config{DEST}/www";
 		## remove compiled *.html files; can ttoolkit do this itself?
-		find(\&clean, $src);
+		find(\&clean, $config{SRC});
 		exit;
 	} elsif ($command =~ /server/i) {
 		# TODO
@@ -107,9 +112,9 @@ sub main {
 }
 
 sub writehtml {
-	my $html = $_;
+	my ($html, %config) = @_;
 	$html =~ s/\.md$/\.html/;
-	my $template = Template->new($tt_config);
+	my $template = Template->new($config{TT_CONFIG});
 	my $layout; 
 
 	my $title;
@@ -132,7 +137,7 @@ sub writehtml {
 			push(@body, markdown($_));
 		}
 	}
-	open my $HTML, ">:encoding($tt_config->{'ENCODING'})", $html;
+	open my $HTML, ">:encoding($config{ENCODING})", $html;
 	my $site_modified = strftime '%c', localtime();
 	
 	my $vars = {
@@ -154,7 +159,7 @@ sub build {
 		    $File::Find::prune = 1;
 	    }
     } elsif ($_ =~ /.md$/) {
-	    writehtml($_, $tt_config);
+	    writehtml($_, %config);
     } elsif ($_ =~ /.png|.jpg|.jpeg|.gif|.svg$/i) {
 	    # TODO
     }
