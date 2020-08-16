@@ -92,7 +92,6 @@ sub main {
 	my $command = <STDIN>;
 	if ($command =~ /build/i) {
 		find(\&build, $src);
-		# note: rsync exclude w/ brace expansion: `{}` - only works in bash not sh
     		system "rm", "-rf", $dest;
 		# TODO: read up on rsync filter rules
 		system "rsync", "-avm", "--exclude=$exclude", $src, $dest;
@@ -142,7 +141,6 @@ sub writehtml {
 	    site_modified => $site_modified
 	};
 	
-	# process input template, substituting variables
 	$template->process($layout, $vars, $HTML)
 		or die $template->error();
 }
@@ -165,8 +163,8 @@ sub build {
 sub clean {
     my $filename = $_;
     if (-d $filename) { 
-	    if ($_ =~ /^_site/ or $_ =~ /^templates/) {
-	    	    say "unlinking: $File::Find::name" if $Verbose;
+	    if ($_ =~ /^_site|^templates/) {
+	    	    say "Unlinking: $File::Find::name" if $Verbose;
 		    $File::Find::prune = 1;
 	    }
     } elsif ($_ =~ /.html$/) {
