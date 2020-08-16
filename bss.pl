@@ -108,18 +108,16 @@ sub main {
 }
 
 sub writehtml {
-	my $markdown = $_;
-	my $line;
-	
+	my $html = $_;
+	$html =~ s/\.md$/\.html/;
 	my $template = Template->new($tt_config);
 	my $layout; 
 
 	my $title;
 	my @body;
 
-	open $line, $markdown;
-	$markdown =~ s/\.md$/\.html/;
-	while(<$line>) {
+	open $MD, $_;
+	while(<$MD>) {
 		if ($_ =~ /^:[tT]/) {
 			$_ = join("", split(/:[tlTL]:/, $_));
 			$_ =~ tr/:://d;
@@ -129,14 +127,13 @@ sub writehtml {
 			$_ = join("", split(/:[tlTL]:/, $_));
 			$_ =~ s/::/\.tmpl/;
 			$layout = $_;
-			$layout =~ s/^\s*(.*?)\s*$/$1/; # remove white space; ugly
+			$layout =~ s/^\s*(.*?)\s*$/$1/; # TODO: remove; use LP 7th ed
 			say "Layout $_" if $Verbose;
 		} else {
 			push(@body, markdown($_));
 		}
 	}
-	my $html = $markdown;
-	open my $FH, ">:encoding($tt_config->{'ENCODING'})", $html or die "open error: $!";
+	open my $HTML, ">:encoding($tt_config->{'ENCODING'})", $html;
 	my $site_modified = strftime '%c', localtime();
 	
 	my $vars = {
@@ -146,7 +143,7 @@ sub writehtml {
 	};
 	
 	# process input template, substituting variables
-	$template->process($layout, $vars, $FH)
+	$template->process($layout, $vars, $HTML)
 		or die $template->error();
 }
 
@@ -154,7 +151,7 @@ sub build {
     my $filename = $_;
     if (-d $filename) { 
 	    # ignore these dirs always:
-	    if ($_ =~ /^_site/ or $_ =~ /^templates/) {
+	    if ($_ =~ /^_site|^templates/) {
 	    	    say "Ignoring: $File::Find::name" if $Verbose; # directory name
 		    $File::Find::prune = 1;
 	    }
