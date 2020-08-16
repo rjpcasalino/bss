@@ -65,14 +65,15 @@ my %config = (
 	COLLECTIONS => $manifest->val("build", "collections"),
 	WATCH => $manifest->val("build", "watch"),
 	EXCLUDE => $manifest->val("build", "exclude"),
-	PORT => $manifest->val("server", "port") // "4000",
-	HOST => $manifest->val("server", "host") // "localhost"
+	PORT => $manifest->val("server", "port"),
+	HOST => $manifest->val("server", "host")
 );
 
 sub main {
 	mkdir($config{DEST}) unless -e $config{DEST};
 	# set template toolkit options
 	$config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
+	$config{TT_CONFIG}->{ENCODING} = $config{ENCODING};
 	
 	foreach $key (sort keys %config) {
 		$value = $config{$key};
@@ -112,7 +113,7 @@ sub main {
 }
 
 sub writehtml {
-	my ($html, %config) = @_;
+	my $html = $_;
 	$html =~ s/\.md$/\.html/;
 	my $template = Template->new($config{TT_CONFIG});
 	my $layout; 
@@ -137,7 +138,7 @@ sub writehtml {
 			push(@body, markdown($_));
 		}
 	}
-	open my $HTML, ">:encoding($config{ENCODING})", $html;
+	open my $HTML, ">", $html;
 	my $site_modified = strftime '%c', localtime();
 	
 	my $vars = {
@@ -159,7 +160,7 @@ sub build {
 		    $File::Find::prune = 1;
 	    }
     } elsif ($_ =~ /.md$/) {
-	    writehtml($_, %config);
+	    writehtml($_);
     } elsif ($_ =~ /.png|.jpg|.jpeg|.gif|.svg$/i) {
 	    # TODO
     }
