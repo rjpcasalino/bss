@@ -50,7 +50,7 @@ my $tt_config = {
     INTERPOLATE  => 0,               # expand "$var" in plain text
     POST_CHOMP   => 1,               # cleanup whitespace
     EVAL_PERL    => 1,               # evaluate Perl code blocks
-    RELATIVE => 1,    		     # used to indicate if templates specified with absolute filename
+    RELATIVE => 1,		     # used to indicate if templates specified with absolute filename
     ENCODING => ""
 };
 
@@ -75,6 +75,7 @@ sub main {
 	$config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
 	$config{TT_CONFIG}->{ENCODING} = $config{ENCODING};
 	
+	say "manifest:" if $Verbose;
 	foreach $key (sort keys %config) {
 		$value = $config{$key};
 		say "$key => $value" if $Verbose;
@@ -85,9 +86,6 @@ sub main {
 		$greeting
 		Working in: $config{SRC}
 	     	Dest: $config{DEST}
-	     	Layouts/Templates: $config{TT_DIR}
-	     	Watch? $config{WATCH}
-	     	Excluding: $config{EXCLUDE}
 	     	Encoding: $config{ENCODING}
 		Server -
 		 PORT:$config{PORT}
@@ -186,7 +184,7 @@ boring static site generator - a simple static site generator
 
 =head1 SYNOPSIS
 
-[env] bss [options] [file ...]
+[env] bss [options] [command]
 
      Options:
        --help     	 prints this help message
