@@ -9,6 +9,12 @@
     [% FOREACH part IN body %]
 	<p>[% part %]</p>
     [% END %]
+    <ul>
+    [% FOREACH item IN collections %]
+	<li>[% item %]</li>
+    [% END %]
+     </ul>
+	<p>[% collections %]</p>
     </div>
 
 [% INCLUDE $footer %]
