@@ -94,6 +94,13 @@ sub main {
 	if $Verbose;
 	
 	say "?";
+	# fetch collections
+	my @collections = split(/,/, @config{COLLECTIONS});
+	for my $i (@collections) { 
+		if (-e File::Spec->catfile($config{SRC}, $i)) { 
+			find(\&collections, File::Spec->catfile($config{SRC}, $i)); 
+		}
+	}
 	my $command = <STDIN>;
 	if ($command =~ /build/i) {
 		find(\&build, $config{SRC});
@@ -118,7 +125,7 @@ sub writehtml {
 
 	my $title;
 	my @body;
-
+	
 	open $MD, $_;
 	while(<$MD>) {
 		if ($_ =~ /^:[tT]/) {
@@ -142,6 +149,7 @@ sub writehtml {
 	my $vars = {
 	    title  => $title,
 	    body => \@body,
+	    collections => \@config{COLLECTIONS},
 	    site_modified => $site_modified
 	};
 	
@@ -165,15 +173,21 @@ sub build {
 }
 
 sub clean {
-    my $filename = $_;
-    if (-d $filename) { 
-	    if ($_ =~ /^_site|^templates/) {
-	    	    say "Unlinking: $File::Find::name" if $Verbose;
-		    $File::Find::prune = 1;
-	    }
-    } elsif ($_ =~ /.html$/) {
+    if ($_ =~ /.html$/) {
     	unlink($_);
     }
+}
+
+sub collections {
+	next if $_ eq "." or $_ eq "..";
+	my $fd = basename $File::Find::dir;
+	my $fn = basename $File::Find::name;
+	%hash = (
+		$fd => $fn
+	);
+	say keys %hash;
+	say values %hash;
+	# TODO: pass along collection data to template
 }
 
 main();
