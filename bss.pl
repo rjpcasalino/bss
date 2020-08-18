@@ -24,6 +24,7 @@ use feature 'say';
 use autodie;
 use Config::IniFiles;
 use Cwd qw(abs_path realpath);
+use Data::Dumper;
 use POSIX qw(strftime);
 use File::Find;
 use File::Copy qw(move);
@@ -81,9 +82,9 @@ sub main {
 		say "$key => $value" if $Verbose;
 	}
 
-	$greeting = "hello! bonjour! welcome!";
+	$greetings = "Hello! Bonjour! Welcome! ひ";
 	say "
-		$greeting
+		$greetings
 		Working in: $config{SRC}
 	     	Dest: $config{DEST}
 	     	Encoding: $config{ENCODING}
@@ -95,6 +96,7 @@ sub main {
 	
 	say "?";
 	# fetch collections
+	# TODO: everything I am doing here is bad...just bad.
 	my @collections = split(/,/, @config{COLLECTIONS});
 	for my $i (@collections) { 
 		if (-e File::Spec->catfile($config{SRC}, $i)) { 
@@ -149,7 +151,10 @@ sub writehtml {
 	my $vars = {
 	    title  => $title,
 	    body => \@body,
-	    collections => \@config{COLLECTIONS},
+	    ## note deref above but not below ##
+	    # see sub collections 
+	    # all bad...
+	    collections => @config{COLLECTIONS},
 	    site_modified => $site_modified
 	};
 	
@@ -177,17 +182,11 @@ sub clean {
     	unlink($_);
     }
 }
-
 sub collections {
 	next if $_ eq "." or $_ eq "..";
-	my $fd = basename $File::Find::dir;
 	my $fn = basename $File::Find::name;
-	%hash = (
-		$fd => $fn
-	);
-	say keys %hash;
-	say values %hash;
-	# TODO: pass along collection data to template
+	push(@collections, $fn);
+	@config{COLLECTIONS} = \@collections;
 }
 
 main();
