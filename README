@@ -14,11 +14,9 @@ bss - boring static site generator
 	templates_dir=templates
 	watch=false
 
-	safe=false
 	include=
 	exclude=*.md
 	encoding=utf-8
-	markdown_ext=markdown,mkdown,mkdn,mkd,md
 
 	[server]
 	port=1988
@@ -31,7 +29,7 @@ A simple web server is included but one would be wise in using it only for local
 
 ## TODO
 
-- [] Collections, or content or posts...
+- [X] Collections, or content or posts...
 	- users need a way to enumerate over some list
 - [] lib/webserver
 - [] handle images
@@ -42,4 +40,4 @@ A simple web server is included but one would be wise in using it only for local
 	- for cleanup
 - [] watch
 	- dev has notify.pl
-- [x] system call with params
+- [X] system call with params
