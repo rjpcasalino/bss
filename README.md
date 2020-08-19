@@ -28,7 +28,7 @@ bss - boring static site generator
 
 	Pages begin (as in Jekyll) with a YAML "front matter" block:  
 
-	``
+	```
 	---
 	title: Nine Stories
 	layout: default 
