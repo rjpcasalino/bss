@@ -40,22 +40,24 @@ use Template;
 my $Verbose = $ENV{VERBOSE} // 0;
 my $help;
 
-GetOptions("HELP|help|h" => \$help) or pod2usage(2);
+GetOptions("help" => \$help) or pod2usage(2);
 pod2usage(1) if $help;
 
 my $manifest = "manifest.ini";
 say "No manifest found!\n See README." and exit unless -e $manifest;
 
+# ####################### #
+# template toolkit config #
+# ####################### #
 my $tt_config = {
-    INCLUDE_PATH => "",  	     # or list ref
-    INTERPOLATE  => 0,               # expand "$var" in plain text
-    POST_CHOMP   => 1,               # cleanup whitespace
-    EVAL_PERL    => 1,               # evaluate Perl code blocks
-    RELATIVE => 1,		     # used to indicate if templates specified with absolute filename
-    ENCODING => ""
+    INCLUDE_PATH => undef,  	     
+    INTERPOLATE  => 0,
+    POST_CHOMP   => 1,
+    EVAL_PERL    => 1,
+    RELATIVE => 1,		    
+    ENCODING => undef
 };
 
-# load manifest;
 $manifest = Config::IniFiles->new(-file => "manifest.ini");
 my %config = (
 	TT_CONFIG => $tt_config,
@@ -95,7 +97,6 @@ sub main {
 	if $Verbose;
 	
 	say "?";
-	# fetch collections
 	# TODO: everything I am doing here is bad...just bad.
 	my @collections = split(/,/, @config{COLLECTIONS});
 	for my $i (@collections) { 
@@ -137,8 +138,7 @@ sub writehtml {
 		# my silly syntax (e.g., :Title:A Tale of Two Cities::).
 		# Use it instead...
 		# Also, TODO: replace caret and dollar sign use with
-		# /A and /z (if useful)
-		# something about lines and strings blah, blah
+		# \A and \z 
 		if ($_ =~ /^:[tT]/) {
 			$_ = join("", split(/:[tlTL]:/, $_));
 			$_ =~ tr/:://d;
@@ -156,13 +156,13 @@ sub writehtml {
 	}
 	open my $HTML, ">", $html;
 	my $site_modified = strftime '%c', localtime();
+	# my $page_modified
 	
 	my $vars = {
 	    title  => $title,
 	    body => \@body,
 	    ## note deref above but not below ##
 	    # see sub collections 
-	    # all bad...
 	    collections => @config{COLLECTIONS},
 	    site_modified => $site_modified
 	};
@@ -191,9 +191,13 @@ sub clean {
     	unlink($_);
     }
 }
+
 sub collections {
 	next if $_ eq "." or $_ eq "..";
 	my $fn = basename $File::Find::name;
+	# TODO: filter regex
+	# i.e., allow option in config to 
+	# apply filter to certain collection 
 	push(@collections, $fn);
 	@config{COLLECTIONS} = \@collections;
 }
