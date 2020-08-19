@@ -48,7 +48,7 @@ A simple web server is included but one would be wise in using it only for local
 
 - [X] Collections, or content or posts...
 - [] use Jekyll regex for YAML (front matter) block
-- [] replace all (^) with (/A) and all ($) with (/z) in regular expressions
+- [] replace all (^) with (\A) and all ($) with (\z) in regular expressions
 - [] clean up how / what we consider collections
 - [] lib/webserver
 - [] handle images
