@@ -130,6 +130,15 @@ sub writehtml {
 	
 	open $MD, $_;
 	while(<$MD>) {
+		# TODO: Jekyll uses this regex:
+		# /\A(---\s*\n.*?\n?)^(---\s*$\n?)/m
+		# to process the "front matter" section
+		# which is YAML which is far better than
+		# my silly syntax (e.g., :Title:A Tale of Two Cities::).
+		# Use it instead...
+		# Also, TODO: replace caret and dollar sign use with
+		# /A and /z (if useful)
+		# something about lines and strings blah, blah
 		if ($_ =~ /^:[tT]/) {
 			$_ = join("", split(/:[tlTL]:/, $_));
 			$_ =~ tr/:://d;
