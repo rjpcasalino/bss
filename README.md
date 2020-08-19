@@ -33,7 +33,8 @@ bss - boring static site generator
 	title: Nine Stories
 	layout: default 
 	meta:
-	 - not yet...
+	 - description
+         - og:image
 	draft: true
         author: J.D. Salinger 
 	---
