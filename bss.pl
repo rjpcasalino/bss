@@ -120,54 +120,62 @@ sub main {
 	pod2usage(1);
 }
 
+# TODO: good God, clean this up
+sub handleyamlblock {
+	my $yaml;
+	open $MD, $_;
+	undef $/;
+	my $data = <$MD>;
+	if ($data =~ /---(.+)---/s) {
+		$yaml = $1;
+	}
+	$yaml =~ s/^\s+|\s+$//g;
+	@yaml = split /\n/, $yaml;
+	writehtml($_, @yaml);
+}
+
 sub writehtml {
-	my $html = $_;
+	my ($html, @yaml) = @_;
 	$html =~ s/\.md$/\.html/;
 	my $template = Template->new($config{TT_CONFIG});
 	my $layout; 
 
 	my $title;
 	my @body;
+	foreach my $opt (@yaml) {
+		if ($opt =~ /title/i) {
+			$opt =~ s/(title:)//;
+			$title = $opt;
+		} elsif ($opt =~ /layout/i) {
+			$opt =~ s/(layout:)//;
+			$opt =~ s/^\s+|\s+$//g;
+			$layout = $opt;
+		} elsif ($opt =~ /meta/i) {
+			# TODO
+		} else {
+			say "Unknown option: $opt";
+		}
+	}
 	
 	open $MD, $_;
 	while(<$MD>) {
-		# TODO: Jekyll uses this regex:
-		# /\A(---\s*\n.*?\n?)^(---\s*$\n?)/m
-		# to process the "front matter" section
-		# which is YAML which is far better than
-		# my silly syntax (e.g., :Title:A Tale of Two Cities::).
-		# Use it instead...
-		# Also, TODO: replace caret and dollar sign use with
-		# \A and \z 
-		if ($_ =~ /^:[tT]/) {
-			$_ = join("", split(/:[tlTL]:/, $_));
-			$_ =~ tr/:://d;
-			say "Title: $_" if $Verbose;
-			$title = $_;
-		} elsif ($_ =~ /^:[lL]/) {
-			$_ = join("", split(/:[tlTL]:/, $_));
-			$_ =~ s/::/\.tmpl/;
-			$layout = $_;
-			$layout =~ s/^\s*(.*?)\s*$/$1/; # TODO: remove; use LP 7th ed
-			say "Layout $_" if $Verbose;
-		} else {
-			push(@body, markdown($_));
-		}
+		push(@body, markdown($_));
 	}
 	open my $HTML, ">", $html;
+	
 	my $site_modified = strftime '%c', localtime();
-	# my $page_modified
+	# my $page_modified;
 	
 	my $vars = {
-	    title  => $title,
-	    body => \@body,
-	    ## note deref above but not below ##
-	    # see sub collections 
-	    collections => @config{COLLECTIONS},
-	    site_modified => $site_modified
+		title => $title,
+		body => \@body,
+		## note deref above but not below ##
+		## see sub collections 
+		collections => @config{COLLECTIONS},
+		site_modified => $site_modified
 	};
-	
-	$template->process($layout, $vars, $HTML)
+
+	$template->process("$layout.tmpl", $vars, $HTML)
 		or die $template->error();
 }
 
@@ -180,7 +188,7 @@ sub build {
 		    $File::Find::prune = 1;
 	    }
     } elsif ($_ =~ /.md$/) {
-	    writehtml($_);
+	    handleyamlblock();
     } elsif ($_ =~ /.png|.jpg|.jpeg|.gif|.svg$/i) {
 	    # TODO
     }
