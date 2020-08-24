@@ -3,18 +3,16 @@
 [% INCLUDE $header %]
 
  <body>
-   <h1>[% title %]</h1>
-    <hr>
     <div>
     [% FOREACH part IN body %]
 	<p>[% part %]</p>
     [% END %]
+
     <ul>
     [% FOREACH item IN collections %]
 	<li>[% item %]</li>
     [% END %]
-     </ul>
-	<p>[% collections %]</p>
+    </ul>
     </div>
 
 [% INCLUDE $footer %]
