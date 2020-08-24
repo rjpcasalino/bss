@@ -20,7 +20,6 @@
 
 use v5.10;
 
-use feature 'say';
 use autodie;
 use Config::IniFiles;
 use Cwd qw(abs_path realpath);
@@ -47,7 +46,7 @@ my $manifest = "manifest.ini";
 say "No manifest found!\n See README." and exit unless -e $manifest;
 
 # ####################### #
-# template toolkit config #
+# TEMPLATE TOOLKIT CONFIG #
 # ####################### #
 my $tt_config = {
     INCLUDE_PATH => undef,  	     
@@ -58,6 +57,9 @@ my $tt_config = {
     ENCODING => undef
 };
 
+# ####################### #
+#  # MANIFEST #
+# ####################### #
 $manifest = Config::IniFiles->new(-file => "manifest.ini");
 my %config = (
 	TT_CONFIG => $tt_config,
@@ -72,6 +74,9 @@ my %config = (
 	HOST => $manifest->val("server", "host")
 );
 
+# ####################### #
+#  # BSS #
+# ####################### #
 sub main {
 	mkdir($config{DEST}) unless -e $config{DEST};
 	# set template toolkit options
@@ -109,10 +114,11 @@ sub main {
 		find(\&build, $config{SRC});
     		system "rm", "-rf", $config{DEST};
 		# TODO: read up on rsync filter rules
-		system "rsync", "-avm", "--exclude=$config{EXCLUDE}", $config{SRC}, $config{DEST};
+		system "rsync", "-avm", "--quiet", "--exclude=$config{EXCLUDE}", $config{SRC}, $config{DEST};
 		move "$config{DEST}/src", "$config{DEST}/www";
 		## remove compiled *.html files; can ttoolkit do this itself?
 		find(\&clean, $config{SRC});
+		say "Things worked?! Your site has been created...";
 		exit;
 	} elsif ($command =~ /server/i) {
 		# TODO
@@ -159,6 +165,10 @@ sub writehtml {
 	
 	open $MD, $_;
 	while(<$MD>) {
+		# remove YAML block
+		if ($_ =~ /(---(.+)---)/s) {
+			s/$1//g;
+		}
 		push(@body, markdown($_));
 	}
 	open my $HTML, ">", $html;
@@ -169,14 +179,13 @@ sub writehtml {
 	my $vars = {
 		title => $title,
 		body => \@body,
-		## note deref above but not below ##
-		## see sub collections 
 		collections => @config{COLLECTIONS},
 		site_modified => $site_modified
 	};
 
 	$template->process("$layout.tmpl", $vars, $HTML)
 		or die $template->error();
+	say "Template processed!" if $Verbose;
 }
 
 sub build {
@@ -203,9 +212,6 @@ sub clean {
 sub collections {
 	next if $_ eq "." or $_ eq "..";
 	my $fn = basename $File::Find::name;
-	# TODO: filter regex
-	# i.e., allow option in config to 
-	# apply filter to certain collection 
 	push(@collections, $fn);
 	@config{COLLECTIONS} = \@collections;
 }
