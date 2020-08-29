@@ -1,0 +1,18 @@
+[% header = "partials/header.tmpl" %]
+[% footer = "partials/footer.tmpl" %]
+[% INCLUDE $header %]
+
+ <body>
+    <div>
+    [% FOREACH part IN body %]
+	[% part %]
+    [% END %]
+
+    <ul>
+    [% FOREACH item IN collections %]
+	<li>[% item %]</li>
+    [% END %]
+    </ul>
+    </div>
+
+[% INCLUDE $footer %]

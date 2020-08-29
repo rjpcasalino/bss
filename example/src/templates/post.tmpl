@@ -1,0 +1,14 @@
+[% header = "partials/header.tmpl" %]
+[% footer = "partials/footer.tmpl" %]
+[% INCLUDE $header %]
+  <body>
+<a href="/"><img src="https://www.w3.org/Icons/back.gif"/></a>
+
+    <h1>[% title %]</h1>
+    [% FOREACH part IN body %]
+	[% part %]
+    [% END %]
+
+<a href="/"><img src="https://www.w3.org/Icons/prev.gif"/></a>
+
+[% INCLUDE $footer %]
