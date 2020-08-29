@@ -2,7 +2,6 @@
 *.JPG
 *.jpg
 *.png
-/_site
-_site
+_site/
 
 
