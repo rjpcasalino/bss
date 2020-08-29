@@ -192,11 +192,15 @@ sub build {
     }
 }
 
+# TODO: broken - only works for one
+# collection which isn't what I want
+# so I must fix...
 sub collections {
+	my @temp;
 	next if $_ eq "." or $_ eq "..";
 	my $fn = basename $File::Find::name;
-	push(@collections, $fn);
-	@config{COLLECTIONS} = \@collections;
+	push(@temp, $fn);
+	@config{COLLECTIONS} = \@temp;
 }
 
 =head1 NAME
