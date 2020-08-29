@@ -1,5 +1,7 @@
-:T:Canvas is big::
-:L:default::
+---
+title: Canvas
+layout: default
+---
 
 # CANVAS
 
