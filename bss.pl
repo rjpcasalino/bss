@@ -45,24 +45,9 @@ pod2usage(1) if $help;
 my $manifest = "manifest.ini";
 say "No manifest found!\n See README." and exit unless -e $manifest;
 
-# ####################### #
-# TEMPLATE TOOLKIT CONFIG #
-# ####################### #
-my $tt_config = {
-    INCLUDE_PATH => undef,  	     
-    INTERPOLATE  => 0,
-    POST_CHOMP   => 1,
-    EVAL_PERL    => 1,
-    RELATIVE => 1,		    
-    ENCODING => undef
-};
-
-# ####################### #
-#  # MANIFEST #
-# ####################### #
 $manifest = Config::IniFiles->new(-file => "manifest.ini");
 my %config = (
-	TT_CONFIG => $tt_config,
+	TT_CONFIG => \%tt_config,
 	TT_DIR => (realpath $manifest->val("build", "templates_dir")),
 	SRC => (abs_path $manifest->val("build", "src")),
 	DEST => $manifest->val("build", "dest"),
@@ -74,59 +59,64 @@ my %config = (
 	HOST => $manifest->val("server", "host")
 );
 
-# ####################### #
-#  # BSS #
-# ####################### #
-sub main {
-	mkdir($config{DEST}) unless -e $config{DEST};
-	# set template toolkit options
-	$config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
-	$config{TT_CONFIG}->{ENCODING} = $config{ENCODING};
-	
-	say "manifest:" if $Verbose;
-	foreach $key (sort keys %config) {
-		$value = $config{$key};
-		say "$key => $value" if $Verbose;
-	}
+# TEMPLATE TOOLKIT #
+my $tt_config = {
+	INCLUDE_PATH => undef,
+	INTERPOLATE  => 0,
+	POST_CHOMP   => 1,
+	EVAL_PERL    => 1,
+	RELATIVE => 1,		    
+	ENCODING => undef
+};
 
-	$greetings = "Hello! Bonjour! Welcome! ひ";
-	say "
-		$greetings
-		Working in: $config{SRC}
-	     	Dest: $config{DEST}
-	     	Encoding: $config{ENCODING}
-		Server -
-		 PORT:$config{PORT}
-		 HOST:$config{HOST}
-		 "
-	if $Verbose;
-	
-	say "?";
-	# TODO: everything I am doing here is bad...just bad.
-	my @collections = split(/,/, @config{COLLECTIONS});
-	for my $i (@collections) { 
-		if (-e File::Spec->catfile($config{SRC}, $i)) { 
-			find(\&collections, File::Spec->catfile($config{SRC}, $i)); 
-		}
-	}
-	my $command = <STDIN>;
-	if ($command =~ /build/i) {
-		find(\&build, $config{SRC});
-    		system "rm", "-rf", $config{DEST};
-		# TODO: read up on rsync filter rules
-		system "rsync", "-avm", "--quiet", "--exclude=$config{EXCLUDE}", $config{SRC}, $config{DEST};
-		move "$config{DEST}/src", "$config{DEST}/www";
-		## remove compiled *.html files; can ttoolkit do this itself?
-		find(\&clean, $config{SRC});
-		say "Things worked?! Your site has been created...";
-		exit;
-	} elsif ($command =~ /server/i) {
-		# TODO
-	}
-	pod2usage(1);
+mkdir($config{DEST}) unless -e $config{DEST};
+# set template toolkit options
+$config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
+$config{TT_CONFIG}->{ENCODING} = $config{ENCODING};
+
+say "manifest:" if $Verbose;
+foreach $key (sort keys %config) {
+	$value = $config{$key};
+	say "$key => $value" if $Verbose;
 }
 
-# TODO: good God, clean this up
+$greetings = "Hello! Bonjour! Welcome! ひ";
+say "
+	$greetings
+	Working in: $config{SRC}
+	Dest: $config{DEST}
+	Excluding: $config{EXCLUDE}
+	Encoding: $config{ENCODING}
+	Server -
+	 PORT:$config{PORT}
+	 HOST:$config{HOST}
+	 "
+if $Verbose;
+
+say "?";
+# TODO: everything I am doing here is bad...just bad.
+my @collections = split(/,/, @config{COLLECTIONS});
+for my $i (@collections) { 
+	if (-e File::Spec->catfile($config{SRC}, $i)) { 
+		find(\&collections, File::Spec->catfile($config{SRC}, $i)); 
+	}
+}
+my $command = <STDIN>;
+if ($command =~ /build/i) {
+	find(\&build, $config{SRC});
+	system "rm", "-rf", $config{DEST};
+	# TODO: replace rsync 
+	system "rsync", "-avm", "--exclude=$config{EXCLUDE}", "--exclude=templates", $config{SRC}, $config{DEST};
+	move "$config{DEST}/src", "$config{DEST}/www";
+	find(sub {if ($_=~ /.html$/) { unlink($_)}}, $config{SRC});
+	say "Site created in $config{DEST}!";
+	exit;
+} elsif ($command =~ /server/i) {
+	# TODO
+}
+pod2usage(1);
+
+# TODO: cleanup
 sub handleyamlblock {
 	my $yaml;
 	open $MD, $_;
@@ -162,7 +152,6 @@ sub writehtml {
 			say "Unknown option: $opt";
 		}
 	}
-	
 	open $MD, $_;
 	while(<$MD>) {
 		# remove YAML block
@@ -185,7 +174,7 @@ sub writehtml {
 
 	$template->process("$layout.tmpl", $vars, $HTML)
 		or die $template->error();
-	say "Template processed!" if $Verbose;
+	say "$title processed." if $Verbose;
 }
 
 sub build {
@@ -203,20 +192,12 @@ sub build {
     }
 }
 
-sub clean {
-    if ($_ =~ /.html$/) {
-    	unlink($_);
-    }
-}
-
 sub collections {
 	next if $_ eq "." or $_ eq "..";
 	my $fn = basename $File::Find::name;
 	push(@collections, $fn);
 	@config{COLLECTIONS} = \@collections;
 }
-
-main();
 
 =head1 NAME
 

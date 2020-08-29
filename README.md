@@ -13,14 +13,13 @@ bss - boring static site generator
 	[build]
 	src=src/
 	dest=_site/
-	templates_dir=templates
+	templates_dir=src/templates
 	watch=false
-
+	collections=posts
 	exclude=*.md
 	encoding=UTF-8
-
 	[server]
-	port=1988
+	port=8090
 	host=127.0.0.1
 
 	```
@@ -45,19 +44,7 @@ bss - boring static site generator
 A simple web server is included but one would be wise in using it only for local development purposes.
 
 ## TODO
+- [] config is messy
+- [] move some code into .pm files
+- [] makefile.pl
 
-- [X] Collections, or content or posts...
-- [] use Jekyll regex for YAML (front matter) block
-- [] replace all (^) with (\A) and all ($) with (\z) in regular expressions
-- [] clean up how / what we consider collections
-- [] lib/webserver
-- [] handle images
-- [] handle js
-- [] tests
-- [] make.pl 
-- [] HTML tidy
-	- for cleanup
-- [] watch
-	- dev has notify.pl
-- [X] system call with params
-- [] all the front matter block options :-/
