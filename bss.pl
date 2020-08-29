@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# bss - a simple static site generator 
+# bss - boring static site generator 
 # Copyright (C) 2020  Ryan Joseph Patrick Casalino
 #
 
@@ -201,7 +201,7 @@ sub collections {
 
 =head1 NAME
 
-boring static site generator - a simple static site generator 
+boring static site generator
 
 =head1 SYNOPSIS
 
