@@ -45,15 +45,15 @@ say "No manifest found!\n See README." and exit unless -e $manifest;
 $manifest = Config::IniFiles->new(-file => "manifest.ini");
 my %config = (
 	TT_CONFIG => \%tt_config,
-	TT_DIR => (realpath $manifest->val("build", "templates_dir")),
-	SRC => (abs_path $manifest->val("build", "src")),
-	DEST => $manifest->val("build", "dest"),
-	ENCODING => $manifest->val("build", "encoding"),
-	COLLECTIONS => $manifest->val("build", "collections"),
-	WATCH => $manifest->val("build", "watch"),
-	EXCLUDE => $manifest->val("build", "exclude"),
-	PORT => $manifest->val("server", "port"),
-	HOST => $manifest->val("server", "host")
+	TT_DIR => (realpath $manifest->val("build", "templates_dir")) // "templates",
+	SRC => (abs_path $manifest->val("build", "src")) // "src",
+	DEST => $manifest->val("build", "dest") // "_site",
+	ENCODING => $manifest->val("build", "encoding") // "UTF-8",
+	COLLECTIONS => $manifest->val("build", "collections") // ".",
+	WATCH => $manifest->val("build", "watch") // "false",
+	EXCLUDE => $manifest->val("build", "exclude") // "*.md",
+	PORT => $manifest->val("server", "port") // "localhost", 
+	HOST => $manifest->val("server", "host") // "8000"
 );
 
 # TEMPLATE TOOLKIT #
@@ -109,10 +109,10 @@ if ($command =~ /build/i) {
 	for $line (@excludes) {
 		say $exclude_fh "$line";
 	}
-	system "rsync", "-avm", "--exclude-from=exclude.txt", $config{SRC}, $config{DEST};
+	system "rsync", "-avmh", "--exclude-from=exclude.txt", $config{SRC}, $config{DEST};
 	# house cleaning
 	unlink("exclude.txt");
-	move "$config{DEST}/src", "$config{DEST}/build";
+	move "$config{SRC}", "$config{DEST}/website";
 	find(sub {if ($_=~ /.html$/) { unlink($_)}}, $config{SRC});
 	# thanks for stopping by!
 	say "Site created in $config{DEST}!";
