@@ -16,7 +16,7 @@ bss - boring static site generator
 	templates_dir=src/templates
 	watch=false
 	collections=posts
-	exclude=*.md
+	exclude=*.md,*.markdown,templates,junk
 	encoding=UTF-8
 	[server]
 	port=8090
@@ -32,7 +32,7 @@ bss - boring static site generator
 	title: Nine Stories
 	layout: default 
 	meta:
-	 - description
+	 - description: A collection of short stories by American fiction writer J. D. Salinger published in 1953. 
          - og:image
 	draft: true
         author: J.D. Salinger 
@@ -47,4 +47,5 @@ A simple web server is included but one would be wise in using it only for local
 - [] config is messy
 - [] move some code into .pm files
 - [] makefile.pl
+- [] meta tags
 
