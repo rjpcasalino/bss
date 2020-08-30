@@ -123,40 +123,26 @@ if ($command =~ /build/i) {
 pod2usage(1);
 
 sub handleYAML {
+	use YAML;
 	my $yaml;
 	open $MD, $_;
 	undef $/;
 	my $data = <$MD>;
 	if ($data =~ /---(.+)---/s) {
-		$yaml = $1;
+		$yaml = Load($1);
 	}
-	$yaml =~ s/^\s+|\s+$//g;
-	@yaml = split /\n/, $yaml;
-	writehtml($_, @yaml);
+	writehtml($_, $yaml);
 }
 
 sub writehtml {
-	my ($html, @yaml) = @_;
+	my ($html, $yaml) = @_;
 	$html =~ s/\.md$/\.html/;
 	my $template = Template->new($config{TT_CONFIG});
 	my $layout; 
 
 	my $title;
 	my @body;
-	foreach my $opt (@yaml) {
-		if ($opt =~ /title/i) {
-			$opt =~ s/(title:)//;
-			$title = $opt;
-		} elsif ($opt =~ /layout/i) {
-			$opt =~ s/(layout:)//;
-			$opt =~ s/^\s+|\s+$//g;
-			$layout = $opt;
-		} elsif ($opt =~ /meta/i) {
-			# TODO
-		} else {
-			say "Unknown option: $opt";
-		}
-	}
+	
 	open $MD, $_;
 	while(<$MD>) {
 		# remove YAML block
@@ -171,15 +157,15 @@ sub writehtml {
 	# my $page_modified;
 	
 	my $vars = {
-		title => $title,
+		title => $yaml->{title},
 		body => \@body,
 		collections => @config{COLLECTIONS},
 		site_modified => $site_modified
 	};
 
-	$template->process("$layout.tmpl", $vars, $HTML)
+	$template->process("$yaml->{layout}.tmpl", $vars, $HTML)
 		or die $template->error();
-	say "$title processed." if $Verbose;
+	say "$yaml->{title} processed." if $Verbose;
 }
 
 sub build {
