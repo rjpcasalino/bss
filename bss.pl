@@ -16,7 +16,6 @@
 
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-#
 
 use v5.10;
 
@@ -75,7 +74,7 @@ $config{TT_CONFIG}->{ENCODING} = $config{ENCODING};
 say "manifest:" if $Verbose;
 foreach $key (sort keys %config) {
 	$value = $config{$key};
-	say "$key => $value" if $Verbose;
+	say "$key: $value" if $Verbose;
 }
 
 $greetings = "Hello! Bonjour! Welcome! ひ";
@@ -91,15 +90,17 @@ say "
 	 "
 if $Verbose;
 
-say "?";
-# TODO: everything I am doing here is bad...just bad.
+say "?"; # what should we do?
+my $command = <STDIN>;
+
+# TODO: see sub with same name below
 my @collections = split(/,/, @config{COLLECTIONS});
 for my $i (@collections) { 
 	if (-e File::Spec->catfile($config{SRC}, $i)) { 
 		find(\&collections, File::Spec->catfile($config{SRC}, $i)); 
 	}
 }
-my $command = <STDIN>;
+
 if ($command =~ /build/i) {
 	find(\&build, $config{SRC});
 	system "rm", "-rf", $config{DEST};
@@ -196,9 +197,7 @@ sub build {
     }
 }
 
-# TODO: broken - only works for one
-# collection which isn't what I want
-# so I must fix...
+# TODO: needs to become a hash of arrays  
 sub collections {
 	my @temp;
 	next if $_ eq "." or $_ eq "..";
