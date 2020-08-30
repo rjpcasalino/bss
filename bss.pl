@@ -24,6 +24,7 @@ use autodie;
 use Config::IniFiles;
 use Cwd qw(abs_path realpath);
 use Data::Dumper;
+use File::Copy qw(move);
 use File::Find;
 use File::Basename;
 use Getopt::Long qw(GetOptions);
@@ -102,10 +103,17 @@ my $command = <STDIN>;
 if ($command =~ /build/i) {
 	find(\&build, $config{SRC});
 	system "rm", "-rf", $config{DEST};
-	# TODO: replace rsync 
-	system "rsync", "-avm", "--exclude=$config{EXCLUDE}", "--exclude=templates", $config{SRC}, $config{DEST};
-	move "$config{DEST}/src", "$config{DEST}/www";
+	open my $exclude_fh, ">", "exclude.txt";
+	@excludes = split /,/, $config{EXCLUDE};
+	for $line (@excludes) {
+		say $exclude_fh "$line";
+	}
+	system "rsync", "-avm", "--exclude-from=exclude.txt", $config{SRC}, $config{DEST};
+	# house cleaning
+	unlink("exclude.txt");
+	move "$config{DEST}/src", "$config{DEST}/build";
 	find(sub {if ($_=~ /.html$/) { unlink($_)}}, $config{SRC});
+	# thanks for stopping by!
 	say "Site created in $config{DEST}!";
 	exit;
 } elsif ($command =~ /server/i) {
@@ -113,8 +121,7 @@ if ($command =~ /build/i) {
 }
 pod2usage(1);
 
-# TODO: cleanup
-sub handleyamlblock {
+sub handleYAML {
 	my $yaml;
 	open $MD, $_;
 	undef $/;
@@ -153,7 +160,7 @@ sub writehtml {
 	while(<$MD>) {
 		# remove YAML block
 		if ($_ =~ /(---(.+)---)/s) {
-			s/$1//g;
+			tr/$1//d;
 		}
 		push(@body, markdown($_));
 	}
@@ -183,7 +190,7 @@ sub build {
 		    $File::Find::prune = 1;
 	    }
     } elsif ($_ =~ /.md$/) {
-	    handleyamlblock();
+	    handleYAML();
     } elsif ($_ =~ /.png|.jpg|.jpeg|.gif|.svg$/i) {
 	    # TODO
     }
