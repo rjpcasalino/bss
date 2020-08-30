@@ -137,10 +137,9 @@ sub handleYAML {
 sub writehtml {
 	my ($html, $yaml) = @_;
 	$html =~ s/\.md$/\.html/;
+	
 	my $template = Template->new($config{TT_CONFIG});
 	my $layout; 
-
-	my $title;
 	my @body;
 	
 	open $MD, $_;
