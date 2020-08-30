@@ -161,7 +161,7 @@ sub writehtml {
 	while(<$MD>) {
 		# remove YAML block
 		if ($_ =~ /(---(.+)---)/s) {
-			tr/$1//d;
+			s/$1//g;
 		}
 		push(@body, markdown($_));
 	}
