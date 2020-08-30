@@ -52,8 +52,8 @@ my %config = (
 	COLLECTIONS => $manifest->val("build", "collections") // ".",
 	WATCH => $manifest->val("build", "watch") // "false",
 	EXCLUDE => $manifest->val("build", "exclude") // "*.md",
-	PORT => $manifest->val("server", "port") // "localhost", 
-	HOST => $manifest->val("server", "host") // "8000"
+	PORT => $manifest->val("server", "port") // "8087", 
+	HOST => $manifest->val("server", "host") // "localhost"
 );
 
 # TEMPLATE TOOLKIT #
@@ -77,10 +77,10 @@ foreach $key (sort keys %config) {
 	say "$key: $value" if $Verbose;
 }
 
-$greetings = "Hello! Bonjour! Welcome! ひ";
+$greetings = "Hello!\t Bonjour!\t Welcome!\t ひ!\t\n";
 say "
 	$greetings
-	Working in: $config{SRC}
+	Src: $config{SRC}
 	Dest: $config{DEST}
 	Excluding: $config{EXCLUDE}
 	Encoding: $config{ENCODING}
