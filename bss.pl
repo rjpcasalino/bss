@@ -23,7 +23,6 @@ use autodie;
 use Config::IniFiles;
 use Cwd qw(abs_path realpath);
 use Data::Dumper;
-use File::Copy qw(move);
 use File::Find;
 use File::Basename;
 use Getopt::Long qw(GetOptions);
@@ -40,13 +39,13 @@ GetOptions("help" => \$help) or pod2usage(2);
 pod2usage(1) if $help;
 
 my $manifest = "manifest.ini";
-say "No manifest found!\n See README." and exit unless -e $manifest;
+say "No manifest.ini found!\n" and exit unless -e $manifest;
 
 $manifest = Config::IniFiles->new(-file => "manifest.ini");
 my %config = (
 	TT_CONFIG => \%tt_config,
-	TT_DIR => (realpath $manifest->val("build", "templates_dir")) // "templates",
-	SRC => (abs_path $manifest->val("build", "src")) // "src",
+	TT_DIR => realpath ($manifest->val("build", "templates_dir") // "templates"),
+	SRC => $manifest->val("build", "src") // "src", # TODO: disallow back/forward slashes 
 	DEST => $manifest->val("build", "dest") // "_site",
 	ENCODING => $manifest->val("build", "encoding") // "UTF-8",
 	COLLECTIONS => $manifest->val("build", "collections") // ".",
@@ -109,10 +108,9 @@ if ($command =~ /build/i) {
 	for $line (@excludes) {
 		say $exclude_fh "$line";
 	}
-	system "rsync", "-avmh", "--exclude-from=exclude.txt", $config{SRC}, $config{DEST};
+	system "rsync", "-avmh", "--exclude-from=exclude.txt", "$config{SRC}/", $config{DEST};
 	# house cleaning
 	unlink("exclude.txt");
-	move "$config{SRC}", "$config{DEST}/website";
 	find(sub {if ($_=~ /.html$/) { unlink($_)}}, $config{SRC});
 	# thanks for stopping by!
 	say "Site created in $config{DEST}!";
@@ -141,6 +139,7 @@ sub writehtml {
 	my $template = Template->new($config{TT_CONFIG});
 	my $layout; 
 	my @body;
+	my $collections = {};
 	
 	open $MD, $_;
 	while(<$MD>) {
@@ -153,13 +152,14 @@ sub writehtml {
 	open my $HTML, ">", $html;
 	
 	my $site_modified = strftime '%c', localtime();
+	$collections{$yaml->{collection}} = $_;
 	# my $page_modified;
 	
 	my $vars = {
 		title => $yaml->{title},
 		body => \@body,
-		collections => @config{COLLECTIONS},
-		site_modified => $site_modified
+		collections => \$collections,
+		site_modified => $site_modified,
 	};
 
 	$template->process("$yaml->{layout}.tmpl", $vars, $HTML)
@@ -171,8 +171,8 @@ sub build {
     my $filename = $_;
     if (-d $filename) { 
 	    # ignore these dirs always:
-	    if ($_ =~ /^_site|^templates/) {
-	    	    say "Ignoring: $File::Find::name" if $Verbose; # directory name
+	    if ($_ =~ /^$config{SRC}|^$config{TT_DIR}/) {
+		    say "Ignoring: $File::Find::name" if $Verbose;
 		    $File::Find::prune = 1;
 	    }
     } elsif ($_ =~ /.md$/) {
