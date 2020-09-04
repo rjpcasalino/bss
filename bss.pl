@@ -48,7 +48,7 @@ my %config = (
 	SRC => $manifest->val("build", "src") // "src", # TODO: disallow back/forward slashes 
 	DEST => $manifest->val("build", "dest") // "_site",
 	ENCODING => $manifest->val("build", "encoding") // "UTF-8",
-	COLLECTIONS => $manifest->val("build", "collections") // ".",
+	COLLECTIONS => $manifest->val("build", "collections") // undef,
 	WATCH => $manifest->val("build", "watch") // "false",
 	EXCLUDE => $manifest->val("build", "exclude") // "*.md",
 	PORT => $manifest->val("server", "port") // "8087", 
@@ -92,17 +92,19 @@ if $Verbose;
 say "?"; # what should we do?
 my $command = <STDIN>;
 
-# TODO: see sub with same name below
-my @collections = split(/,/, @config{COLLECTIONS});
-for my $i (@collections) { 
-	if (-e File::Spec->catfile($config{SRC}, $i)) { 
-		find(\&collections, File::Spec->catfile($config{SRC}, $i)); 
-	}
-}
-
 if ($command =~ /build/i) {
-	find(\&build, $config{SRC});
 	system "rm", "-rf", $config{DEST};
+	@collections = split /,/, $config{COLLECTIONS};
+	for my $dir (@collections) {
+		my @files;
+		%collections = {$dir => @files};
+		print %collections;
+		my @keys = keys %collections;
+		my @values = values %collections;
+		find(sub { say "FILE: $_"; push @{$collections{$dir}}, $_}, File::Spec->catfile($config{SRC},$dir));
+		say "KEYS @keys";
+	}
+	find(\&build, $config{SRC});
 	open my $exclude_fh, ">", "exclude.txt";
 	@excludes = split /,/, $config{EXCLUDE};
 	for $line (@excludes) {
@@ -139,7 +141,6 @@ sub writehtml {
 	my $template = Template->new($config{TT_CONFIG});
 	my $layout; 
 	my @body;
-	my $collections = {};
 	
 	open $MD, $_;
 	while(<$MD>) {
@@ -152,13 +153,12 @@ sub writehtml {
 	open my $HTML, ">", $html;
 	
 	my $site_modified = strftime '%c', localtime();
-	$collections{$yaml->{collection}} = $_;
 	# my $page_modified;
 	
 	my $vars = {
 		title => $yaml->{title},
 		body => \@body,
-		collections => \$collections,
+		collections => $config{COLLECTIONS},
 		site_modified => $site_modified,
 	};
 
@@ -180,15 +180,6 @@ sub build {
     } elsif ($_ =~ /.png|.jpg|.jpeg|.gif|.svg$/i) {
 	    # TODO
     }
-}
-
-# TODO: needs to become a hash of arrays  
-sub collections {
-	my @temp;
-	next if $_ eq "." or $_ eq "..";
-	my $fn = basename $File::Find::name;
-	push(@temp, $fn);
-	@config{COLLECTIONS} = \@temp;
 }
 
 =head1 NAME
