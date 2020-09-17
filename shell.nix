@@ -9,6 +9,7 @@ pkgs.mkShell {
     pkgs.perlPackages.TextMarkdown 
     pkgs.perlPackages.TemplateToolkit 
     pkgs.perlPackages.HTTPServerSimple 
+    pkgs.perlPackages.YAML
     pkgs.rsync
   ];
 }
