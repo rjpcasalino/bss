@@ -70,7 +70,7 @@ mkdir($config{DEST}) unless -e $config{DEST};
 $config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
 $config{TT_CONFIG}->{ENCODING} = $config{ENCODING};
 
-say "manifest:" if $Verbose;
+say "--manifest--" if $Verbose;
 foreach $key (sort keys %config) {
 	$value = $config{$key};
 	say "$key: $value" if $Verbose;
