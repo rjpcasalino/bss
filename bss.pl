@@ -95,14 +95,12 @@ my $command = <STDIN>;
 if ($command =~ /build/i) {
 	system "rm", "-rf", $config{DEST};
 	@collections = split /,/, $config{COLLECTIONS};
+	my %collections = ();
 	for my $dir (@collections) {
-		my @files;
-		%collections = {$dir => @files};
-		print %collections;
-		my @keys = keys %collections;
-		my @values = values %collections;
-		find(sub { say "FILE: $_"; push @{$collections{$dir}}, $_}, File::Spec->catfile($config{SRC},$dir));
-		say "KEYS @keys";
+		# this pushes an empty list into the hash...
+		push( @{ $collections { $dir } }, ());
+		find(sub { next if $_ eq "." or $_ eq ".."; push @{$collections{$dir}}, $_}, File::Spec->catfile($config{SRC},$dir));
+		$config{COLLECTIONS} = \%collections;
 	}
 	find(\&build, $config{SRC});
 	open my $exclude_fh, ">", "exclude.txt";
