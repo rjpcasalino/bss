@@ -1,7 +1,8 @@
-package Web;
-# Core Web server rounties from
+# Core Web server rounties from:
 # Chapter 15 of "Network Programming with Perl"
-# copyright Linclon D Stein 
+# Copyright Lincoln D. Stein, 2000 
+
+package Web;
 
 use v5.10;
 
@@ -66,12 +67,14 @@ sub redirect {
 	print $c "Location: $moved_to$CRLF";
 	print $c "Content-type: text/html$CRLF$CRLF";
 	print $c <<END;
-<HTML>
-<HEAD><TITLE>301 Moved</TITLE></HEAD>
-<BODY><H1>MOVED</H1>
+<html>
+<head><title>301 Moved</title>
+</head>
+<body>
+<h1>MOVED</h1>
 <p> The requested document has moved <a href="$moved_to">here</a>.<.p>
-</BODY>
-</HTML>
+</body>
+</html>
 END
 }
 
@@ -80,11 +83,12 @@ sub invalid_request {
 	print $c "HTTP/1.0 400 Bad Request$CRLF";
 	print $c "Content-type: text/html$CRLF$CRLF";
 	print $c <<END;
-<HTML>
-<HEAD><TITLE>400 Bad Request</TITLE></HEAD>
-<BODY><H1>Bad Request</H1>
-</BODY>
-</HTML>
+<html>
+<head><title>400 Bad Request</title>
+</head>
+<body><h1>Bad Request</h1>
+</body>
+</html>
 END
 }
 
@@ -93,11 +97,13 @@ sub not_found {
 	print $c "HTTP/1.0 404 Not Found$CRLF";
 	print $c "Content-type: text/html$CRLF$CRLF";
 	print $c <<END;
-<HTML>
-<HEAD><TITLE>404 Not Found</TITLE></HEAD>
-<BODY><H1>404 Not Found</H1>
-</BODY>
-</HTML>
+<html>
+<head><title>404 Not Found</title>
+</head>
+<body>
+<h1>404 Not Found</h1>
+</body>
+</html>
 END
 }
 
