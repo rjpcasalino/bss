@@ -1,13 +1,13 @@
-![hi](https://en.wikipedia.org/wiki/Hi_(kana)#/media/File:Hiragana_%E3%81%B2_stroke_order_animation.gif)
+![hi](https://upload.wikimedia.org/wikipedia/commons/3/36/%E3%81%B2_%E6%95%99%E7%A7%91%E6%9B%B8%E4%BD%93.svg)
 
-**this is a work in progress!
+**this is a work in progress!***
 
 bss - boring static site generator
 
 + Getting Started
 	`VERBOSE=1` will make bss talkative.
 
-	bss reads manifest.ini for configuration options:
+	bss reads manifest.ini for its configuration options:
 
 	```
 	[build]
@@ -38,14 +38,15 @@ bss - boring static site generator
         author: J.D. Salinger 
 	---
 	```
-	bss assumes template files use the `.tmpl` extention, which can be omitted.
+	bss assumes template files use the `.tmpl` extention, which can be omitted. (Will probably have to change)
 
 
 A simple web server is included but one would be wise in using it only for local development purposes.
 
 ## TODO
-- [] config is messy
-- [] move some code into .pm files
+- [x] move some code into .pm files
 - [] makefile.pl
 - [] meta tags
+- [] server command line flag
+- [] watch command line flag
 
