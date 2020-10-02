@@ -12,7 +12,8 @@ require Exporter;
 @ISA = 'Exporter';
 @EXPORT = qw(handle_connection docroot);
 
-my $DOCUMENT_ROOT = '/home/rjpc/programs/bss/example/_site';
+# hacky but whatever
+my $DOCUMENT_ROOT = $ENV{'BSS_DOCROOT'};
 my $CRLF = "\015\012";
 
 sub handle_connection {
