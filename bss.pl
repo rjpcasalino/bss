@@ -83,10 +83,10 @@ server() if $opts{server};
 pod2usage(1) if $help;
 
 say "test" if $test;
-say "--manifest--" if $verbose;
+say "--manifest--" if $opts{verbose};
 foreach $key (sort keys %config) {
 	$value = $config{$key};
-	say "$key: $value" if $verbose;
+	say "$key: $value" if $opts{verbose};
 }
 
 $greetings = "Hello!\t Bonjour!\t Welcome!\t ひ!\t\n";
@@ -183,7 +183,7 @@ sub writehtml {
 
 	$template->process("$yaml->{layout}.tmpl", $vars, $HTML)
 		or die $template->error();
-	say "$yaml->{title} processed." if $verbose;
+	say "$yaml->{title} processed." if $opts{verbose};
 }
 
 sub build {
@@ -191,7 +191,7 @@ sub build {
     if (-d $filename) { 
 	    # ignore these dirs always:
 	    if ($_ =~ /^$config{SRC}|^$config{TT_DIR}/) {
-		    say "Ignoring: $File::Find::name" if $verbose;
+		    say "Ignoring: $File::Find::name" if $opts{verbose};
 		    $File::Find::prune = 1;
 	    }
     } elsif ($_ =~ /.md$/) {
