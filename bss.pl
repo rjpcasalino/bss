@@ -25,18 +25,16 @@ use Cwd qw(abs_path realpath);
 use Data::Dumper;
 use File::Find;
 use File::Basename;
+use FindBin qw($Bin);
+use lib "$Bin/lib";
 use Getopt::Long qw(GetOptions);
 use IO::File;
 use POSIX qw(strftime);
 use Pod::Usage qw(pod2usage);
 use Text::Markdown qw(markdown);
 use Template;
-
-my $Verbose = $ENV{VERBOSE} // 0;
-my $help;
-
-GetOptions("help" => \$help) or pod2usage(2);
-pod2usage(1) if $help;
+use IO::Socket;
+use Web;
 
 my $manifest = "manifest.ini";
 say "No manifest.ini found!\n" and exit unless -e $manifest;
@@ -70,10 +68,25 @@ mkdir($config{DEST}) unless -e $config{DEST};
 $config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
 $config{TT_CONFIG}->{ENCODING} = $config{ENCODING};
 
-say "--manifest--" if $Verbose;
+my %opts = (build => '', server => '', verbose => '');
+
+GetOptions(\%opts, qw(
+   build
+   verbose
+   help
+   server
+));
+
+do_build(%config) if $opts{build};
+server() if $opts{server};
+
+pod2usage(1) if $help;
+
+say "test" if $test;
+say "--manifest--" if $opts{verbose};
 foreach $key (sort keys %config) {
 	$value = $config{$key};
-	say "$key: $value" if $Verbose;
+	say "$key: $value" if $opts{verbose};
 }
 
 $greetings = "Hello!\t Bonjour!\t Welcome!\t ひ!\t\n";
@@ -87,12 +100,9 @@ say "
 	 PORT:$config{PORT}
 	 HOST:$config{HOST}
 	 "
-if $Verbose;
+if $opts{verbose};
 
-say "?"; # what should we do?
-my $command = <STDIN>;
-
-if ($command =~ /build/i) {
+sub do_build {
 	system "rm", "-rf", $config{DEST};
 	@collections = split /,/, $config{COLLECTIONS};
 	my %collections = ();
@@ -108,17 +118,28 @@ if ($command =~ /build/i) {
 	for $line (@excludes) {
 		say $exclude_fh "$line";
 	}
-	system "rsync", "-avmh", "--exclude-from=exclude.txt", "$config{SRC}/", $config{DEST};
+	system "rsync", "-avmh", "--exclude-from=exclude.txt", $config{SRC}, $config{DEST};
 	# house cleaning
 	unlink("exclude.txt");
 	find(sub {if ($_=~ /.html$/) { unlink($_)}}, $config{SRC});
 	# thanks for stopping by!
 	say "Site created in $config{DEST}!";
 	exit;
-} elsif ($command =~ /server/i) {
-	# TODO
 }
-pod2usage(1);
+
+sub server {
+	my $port = $config{PORT};
+	my $socket = IO::Socket::INET->new( LocalPort => $port,
+				   	    Listen => SOMAXCONN,
+			    	    	    Reuse => 1 )
+			    	    	    or die "Can't create listen socket: $!";
+	say "Started local web server on $port!";
+	while (my $c = $socket->accept) {
+		handle_connection($c);
+		close $c;
+	}
+	close $socket;
+}
 
 sub handleYAML {
 	use YAML;
@@ -162,7 +183,7 @@ sub writehtml {
 
 	$template->process("$yaml->{layout}.tmpl", $vars, $HTML)
 		or die $template->error();
-	say "$yaml->{title} processed." if $Verbose;
+	say "$yaml->{title} processed." if $opts{verbose};
 }
 
 sub build {
@@ -170,7 +191,7 @@ sub build {
     if (-d $filename) { 
 	    # ignore these dirs always:
 	    if ($_ =~ /^$config{SRC}|^$config{TT_DIR}/) {
-		    say "Ignoring: $File::Find::name" if $Verbose;
+		    say "Ignoring: $File::Find::name" if $opts{verbose};
 		    $File::Find::prune = 1;
 	    }
     } elsif ($_ =~ /.md$/) {
