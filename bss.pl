@@ -48,8 +48,8 @@ my %config = (
 	ENCODING => $manifest->val("build", "encoding") // "UTF-8",
 	COLLECTIONS => $manifest->val("build", "collections") // undef,
 	WATCH => $manifest->val("build", "watch") // "false",
-	EXCLUDE => $manifest->val("build", "exclude") // "*.md",
-	PORT => $manifest->val("server", "port") // "8087", 
+	EXCLUDE => $manifest->val("build", "exclude") // "*.md, templates",
+	PORT => $manifest->val("server", "port") // "9000", 
 	HOST => $manifest->val("server", "host") // "localhost"
 );
 
@@ -68,21 +68,23 @@ mkdir($config{DEST}) unless -e $config{DEST};
 $config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
 $config{TT_CONFIG}->{ENCODING} = $config{ENCODING};
 
-my %opts = (build => '', server => '', verbose => '');
+# TODO: build is a command not an option. server as well? 
+# also don't forget about 'watch'
+my %opts = (build => '', server => '', verbose => '', help => '');
 
 GetOptions(\%opts, qw(
    build
    verbose
    help
    server
+   watch
 ));
 
 do_build(%config) if $opts{build};
 server() if $opts{server};
 
-pod2usage(1) if $help;
+pod2usage(1) if $opts{help};
 
-say "test" if $test;
 say "--manifest--" if $opts{verbose};
 foreach $key (sort keys %config) {
 	$value = $config{$key};
@@ -92,13 +94,12 @@ foreach $key (sort keys %config) {
 $greetings = "Hello!\t Bonjour!\t Welcome!\t ひ!\t\n";
 say "
 	$greetings
-	Src: $config{SRC}
-	Dest: $config{DEST}
+	SRC: $config{SRC}
+	DEST: $config{DEST}
 	Excluding: $config{EXCLUDE}
 	Encoding: $config{ENCODING}
 	Server -
 	 PORT:$config{PORT}
-	 HOST:$config{HOST}
 	 "
 if $opts{verbose};
 
@@ -133,7 +134,7 @@ sub server {
 				   	    Listen => SOMAXCONN,
 			    	    	    Reuse => 1 )
 			    	    	    or die "Can't create listen socket: $!";
-	say "Started local web server on $port!";
+	say "Started local dev server on $port!";
 	while (my $c = $socket->accept) {
 		handle_connection($c);
 		close $c;
@@ -164,6 +165,8 @@ sub writehtml {
 	open $MD, $_;
 	while(<$MD>) {
 		# remove YAML block
+		# FIXME
+		# this just subs in blank lines, which we do not want
 		if ($_ =~ /(---(.+)---)/s) {
 			s/$1//g;
 		}
@@ -190,6 +193,7 @@ sub build {
     my $filename = $_;
     if (-d $filename) { 
 	    # ignore these dirs always:
+	    # FIXME
 	    if ($_ =~ /^$config{SRC}|^$config{TT_DIR}/) {
 		    say "Ignoring: $File::Find::name" if $opts{verbose};
 		    $File::Find::prune = 1;
@@ -211,7 +215,6 @@ boring static site generator
 
      Options:
        --help     	 prints this help message
-
-    Commands:
-    	build		 builds _site dir
-	server		 builds _site dir and serves it
+       --verbose     	 gets talkative
+       --build		 builds _site dir
+       --server		 builds _site dir and serves it
