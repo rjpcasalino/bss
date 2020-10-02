@@ -1,10 +1,8 @@
-![hi](https://upload.wikimedia.org/wikipedia/commons/3/36/%E3%81%B2_%E6%95%99%E7%A7%91%E6%9B%B8%E4%BD%93.svg)
-
 **this is a work in progress!**
 
-bss - boring static site generator
+# bss - boring static site generator
 
-+ Getting Started
+## Getting Started
 
 	bss reads manifest.ini for its configuration options:
 
@@ -37,7 +35,6 @@ bss - boring static site generator
 	---
 	```
 	bss assumes template files use the `.tmpl` extention, which can be omitted. (Will probably have to change)
-
 
 A simple web server is included but one would be wise in using it only for local development purposes.
 Ensure the `BSS_DOCROOT` ENV var is set, like so:
