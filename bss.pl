@@ -118,7 +118,7 @@ sub do_build {
 	for $line (@excludes) {
 		say $exclude_fh "$line";
 	}
-	system "rsync", "-avmh", "--exclude-from=exclude.txt", "$config{SRC}/", $config{DEST};
+	system "rsync", "-avmh", "--exclude-from=exclude.txt", $config{SRC}, $config{DEST};
 	# house cleaning
 	unlink("exclude.txt");
 	find(sub {if ($_=~ /.html$/) { unlink($_)}}, $config{SRC});
