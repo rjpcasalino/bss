@@ -8,8 +8,8 @@ pkgs.mkShell {
     pkgs.perlPackages.FileSlurp
     pkgs.perlPackages.TextMarkdown 
     pkgs.perlPackages.TemplateToolkit 
-    pkgs.perlPackages.HTTPServerSimple 
     pkgs.perlPackages.YAML
+    pkgs.perlPackages.AppFatPacker
     pkgs.rsync
   ];
 }
