@@ -37,7 +37,7 @@ use IO::Socket;
 use Web;
 
 my $manifest = "manifest.ini";
-say "No manifest.ini found!\n" and exit unless -e $manifest;
+say "No manifest.ini found!" and exit unless -e $manifest;
 
 $manifest = Config::IniFiles->new(-file => "manifest.ini");
 my %config = (
