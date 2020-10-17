@@ -49,7 +49,7 @@ Ensure the `BSS_DOCROOT` ENV var is set, like so:
 - [] meta tags
 - [x] server command line flag
 - [] watch command line flag
-- [] newline when no manifest should be removed
+- [x] newline when no manifest should be removed
 - [] handle no flag and don't mkdir _site 
 - [] templates extensions allowed: .html and .tmpl or .template 
 - [] use ffmpeg or whatever to reduce img dir size?
