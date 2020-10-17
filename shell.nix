@@ -10,6 +10,8 @@ pkgs.mkShell {
     pkgs.perlPackages.TemplateToolkit 
     pkgs.perlPackages.YAML
     pkgs.perlPackages.AppFatPacker
+    pkgs.perlPackages.DistZilla
+    pkgs.perlPackages.Carton
     pkgs.rsync
   ];
 }
