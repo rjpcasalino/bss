@@ -145,7 +145,7 @@ sub do_build {
 
     # thanks for stopping by!
     say "Site created in $config{DEST}!";
-    exit;
+    1;
 }
 
 sub server {
