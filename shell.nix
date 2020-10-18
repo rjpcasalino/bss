@@ -4,6 +4,7 @@ pkgs.mkShell {
   name = "bss";
   buildInputs = [
     pkgs.perl # important!
+    pkgs.perlPackages.PerlTidy
     pkgs.perlPackages.ConfigIniFiles
     pkgs.perlPackages.FileSlurp
     pkgs.perlPackages.TextMarkdown 
