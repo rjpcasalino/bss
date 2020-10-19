@@ -178,7 +178,6 @@ sub writehtml {
     $html =~ s/\.md$/\.html/;
 
     my $template = Template->new( $config{TT_CONFIG} );
-    my $layout;
     my @body;
 
     open $MD, $_;
@@ -201,8 +200,13 @@ sub writehtml {
         collections   => $config{COLLECTIONS},
         site_modified => $site_modified,
     };
-
-    $template->process( "$yaml->{layout}.tmpl", $vars, $HTML )
+    find(
+        sub {
+            if ( $_ =~ /$yaml->{layout}(.tmpl|.template|.html|.tt|.tt2)$/ ) { $yaml->{layout} = $_; }
+        },
+        $config{TT_DIR}
+    );
+    $template->process( $yaml->{layout}, $vars, $HTML )
       or die $template->error();
     say "$yaml->{title} processed." if $opts{verbose};
 }
