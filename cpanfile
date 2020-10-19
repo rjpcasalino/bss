@@ -1,2 +1,2 @@
-requires 'Config::IniFiles', '0';
-requires 'Template', '0';
+requires 'Config::IniFiles';
+requires 'Template::Toolkit';
