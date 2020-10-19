@@ -34,22 +34,17 @@
         author: J.D. Salinger 
 	---
 	```
-	bss assumes template files use the `.tmpl` extention, which can be omitted. (Will probably have to change)
+	Template files can use any of the following file exts: `.tmpl, .template, .html, .tt, .tt2`.
 
 A simple web server is included but one would be wise in using it only for local development purposes.
 Ensure the `BSS_DOCROOT` ENV var is set, like so:
 
 ```
- BSS_DOCROOT=/path/to/your/_site/ bss --server
+$ export BSS_DOCROOT=/path/to/your/_site/ 
+$ bss --server
 ```
 
 ## TODO
-- [x] move some code into .pm files
-- [] makefile.pl
 - [] meta tags
-- [x] server command line flag
 - [] watch command line flag
-- [x] newline when no manifest should be removed
 - [] handle no flag and don't mkdir _site 
-- [] templates extensions allowed: .html and .tmpl or .template 
-- [] use ffmpeg or whatever to reduce img dir size?
