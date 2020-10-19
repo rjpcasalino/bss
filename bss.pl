@@ -35,6 +35,7 @@ use Text::Markdown qw(markdown);
 use Template;
 use IO::Socket;
 use Web;
+use YAML;
 
 my $manifest = "manifest.ini";
 say "No manifest.ini found!" and exit unless -e $manifest;
@@ -96,7 +97,7 @@ foreach $key ( sort keys %config ) {
     say "$key: $value" if $opts{verbose};
 }
 
-$greetings = "Hello!\t Bonjour!\t Welcome!\t ひ!\t\n";
+$greetings = "Hello!\t Bonjour!\t Welcome!\t";
 say "
 	$greetings
 	SRC: $config{SRC}
@@ -113,7 +114,6 @@ sub do_build {
     @collections = split /,/, $config{COLLECTIONS};
     my %collections = ();
     for my $dir (@collections) {
-
         # this pushes an empty list into the hash...
         push( @{ $collections{$dir} }, () );
         find(
@@ -142,7 +142,6 @@ sub do_build {
         },
         $config{SRC}
     );
-
     # thanks for stopping by!
     say "Site created in $config{DEST}!";
     1;
@@ -164,7 +163,6 @@ sub server {
 }
 
 sub handleYAML {
-    use YAML;
     my $yaml;
     open $MD, $_;
     undef $/;
@@ -185,10 +183,7 @@ sub writehtml {
 
     open $MD, $_;
     while (<$MD>) {
-
-        # remove YAML block
         # FIXME
-        # this just subs in blank lines, which we do not want
         if ( $_ =~ /(---(.+)---)/s ) {
             s/$1//g;
         }
@@ -215,8 +210,6 @@ sub writehtml {
 sub build {
     my $filename = $_;
     if ( -d $filename ) {
-
-        # ignore these dirs always:
         # FIXME
         if ( $_ =~ /^$config{SRC}|^$config{TT_DIR}/ ) {
             say "Ignoring: $File::Find::name" if $opts{verbose};
@@ -227,7 +220,6 @@ sub build {
         handleYAML();
     }
     elsif ( $_ =~ /.png|.jpg|.jpeg|.gif|.svg$/i ) {
-
         # TODO
     }
 }
