@@ -114,6 +114,7 @@ sub do_build {
     @collections = split /,/, $config{COLLECTIONS};
     my %collections = ();
     for my $dir (@collections) {
+
         # this pushes an empty list into the hash...
         push( @{ $collections{$dir} }, () );
         find(
@@ -142,6 +143,7 @@ sub do_build {
         },
         $config{SRC}
     );
+
     # thanks for stopping by!
     say "Site created in $config{DEST}!";
     1;
@@ -182,6 +184,7 @@ sub writehtml {
 
     open $MD, $_;
     while (<$MD>) {
+
         # FIXME
         if ( $_ =~ /(---(.+)---)/s ) {
             s/$1//g;
@@ -202,7 +205,9 @@ sub writehtml {
     };
     find(
         sub {
-            if ( $_ =~ /$yaml->{layout}(.tmpl|.template|.html|.tt|.tt2)$/ ) { $yaml->{layout} = $_; }
+            if ( $_ =~ /$yaml->{layout}(.tmpl|.template|.html|.tt|.tt2)$/ ) {
+                $yaml->{layout} = $_;
+            }
         },
         $config{TT_DIR}
     );
@@ -214,6 +219,7 @@ sub writehtml {
 sub build {
     my $filename = $_;
     if ( -d $filename ) {
+
         # FIXME
         if ( $_ =~ /^$config{SRC}|^$config{TT_DIR}/ ) {
             say "Ignoring: $File::Find::name" if $opts{verbose};
@@ -224,6 +230,7 @@ sub build {
         handleYAML();
     }
     elsif ( $_ =~ /.png|.jpg|.jpeg|.gif|.svg$/i ) {
+
         # TODO
     }
 }
