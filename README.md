@@ -8,10 +8,9 @@
 
 	```
 	[build]
-	src=src/
-	dest=_site/
+	src=/the/path/to/your/site/src/
+	dest=/home/you/websites/_site/
 	templates_dir=src/templates
-	watch=false
 	collections=posts
 	exclude=*.md,*.markdown,templates,junk
 	encoding=UTF-8
@@ -33,7 +32,13 @@
 	draft: true
         author: J.D. Salinger 
 	---
+	[% footer = 'partials/footer.tt' %]
+
+	The meta tags will end up nowhere. Hasn't been implemented yet. :-)
+
+	[% INCLUDE $footer %]
 	```
+
 	Template files can use any of the following file exts: `.tmpl, .template, .html, .tt, .tt2`.
 
 A simple web server is included but one would be wise in using it only for local development purposes.
