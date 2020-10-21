@@ -83,7 +83,6 @@ GetOptions(
       )
 );
 
-say "--manifest--" if $opts{verbose};
 say "
 	SRC: $config{SRC}
 	DEST: $config{DEST}
