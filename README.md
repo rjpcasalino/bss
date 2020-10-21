@@ -46,5 +46,9 @@ $ bss --server
 
 ## TODO
 - [] meta tags
-- [] watch command line flag
 - [] handle no flag and don't mkdir _site 
+
+### Installing
+
+I've been using [fatpack](https://metacpan.org/pod/distribution/App-FatPacker/bin/fatpack). Although, perl has myriad other options. 
+See fatpack examples if you wish to install it.
