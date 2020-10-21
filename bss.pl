@@ -59,8 +59,7 @@ my %config = (
 # TEMPLATE TOOLKIT #
 my $tt_config = {
     INCLUDE_PATH => undef,
-    INTERPOLATE  => 0,
-    POST_CHOMP   => 1,
+    INTERPOLATE  => 1,
     EVAL_PERL    => 1,
     RELATIVE     => 1,
     ENCODING     => undef
@@ -73,7 +72,6 @@ $config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
 $config{TT_CONFIG}->{ENCODING}     = $config{ENCODING};
 
 # TODO: build is a command not an option. server as well?
-# also don't forget about 'watch'
 my %opts = ( build => '', server => '', verbose => '', help => '' );
 
 GetOptions(
@@ -119,6 +117,7 @@ sub do_build {
         find(
             sub {
                 next if $_ eq "." or $_ eq "..";
+		$_ =~ s/\.md$/\.html/;
                 push @{ $collections{$dir} }, $_;
             },
             File::Spec->catfile( $config{SRC}, $dir )
@@ -238,6 +237,7 @@ boring static site generator
 
      Options:
        --help     	 prints this help message
-       --verbose     	 gets talkative
        --build		 builds _site dir
        --server		 builds _site dir and serves it
+       --verbose     	 gets talkative
+       --watch		 watches for changes
