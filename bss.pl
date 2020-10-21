@@ -38,7 +38,7 @@ use Web;
 use YAML;
 
 my $manifest = "manifest.ini";
-say "No manifest.ini found!" and exit unless -e $manifest;
+print "No manifest.ini found!" and exit unless -e $manifest;
 
 $manifest = Config::IniFiles->new( -file => "manifest.ini" );
 my %config = (
@@ -50,7 +50,6 @@ my %config = (
     DEST        => $manifest->val( "build", "dest" )        // "_site",
     ENCODING    => $manifest->val( "build", "encoding" )    // "UTF-8",
     COLLECTIONS => $manifest->val( "build", "collections" ) // undef,
-    WATCH       => $manifest->val( "build", "watch" )       // "false",
     EXCLUDE => $manifest->val( "build",  "exclude" ) // "*.md, templates",
     PORT    => $manifest->val( "server", "port" )    // "9000",
     HOST    => $manifest->val( "server", "host" )    // "localhost"
@@ -72,40 +71,34 @@ $config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
 $config{TT_CONFIG}->{ENCODING}     = $config{ENCODING};
 
 # TODO: build is a command not an option. server as well?
-my %opts = ( build => '', server => '', verbose => '', help => '' );
+my %opts = ( build => 0, server => 0, verbose => 0, help => 0, watch => 0 );
 
 GetOptions(
     \%opts, qw(
       build
+      server
       verbose
       help
-      server
       watch
       )
 );
+
+say "--manifest--" if $opts{verbose};
+say "
+	SRC: $config{SRC}
+	DEST: $config{DEST}
+	Excluding: $config{EXCLUDE}
+	Encoding: $config{ENCODING}
+	Watch: $opts{watch}
+	Server -
+	 PORT:$config{PORT}
+	 "
+  if $opts{verbose};
 
 do_build(%config) if $opts{build};
 server()          if $opts{server};
 
 pod2usage(1) if $opts{help};
-
-say "--manifest--" if $opts{verbose};
-foreach $key ( sort keys %config ) {
-    $value = $config{$key};
-    say "$key: $value" if $opts{verbose};
-}
-
-$greetings = "Hello!\t Bonjour!\t Welcome!\t";
-say "
-	$greetings
-	SRC: $config{SRC}
-	DEST: $config{DEST}
-	Excluding: $config{EXCLUDE}
-	Encoding: $config{ENCODING}
-	Server -
-	 PORT:$config{PORT}
-	 "
-  if $opts{verbose};
 
 sub do_build {
     system "rm", "-rf", $config{DEST};
@@ -118,7 +111,7 @@ sub do_build {
         find(
             sub {
                 next if $_ eq "." or $_ eq "..";
-		$_ =~ s/\.md$/\.html/;
+                $_ =~ s/\.md$/\.html/;
                 push @{ $collections{$dir} }, $_;
             },
             File::Spec->catfile( $config{SRC}, $dir )
@@ -146,21 +139,6 @@ sub do_build {
     # thanks for stopping by!
     say "Site created in $config{DEST}!";
     1;
-}
-
-sub server {
-    my $port   = $config{PORT};
-    my $socket = IO::Socket::INET->new(
-        LocalPort => $port,
-        Listen    => SOMAXCONN,
-        Reuse     => 1
-    ) or die "Can't create listen socket: $!";
-    say "Started local dev server on $port!";
-    while ( my $c = $socket->accept ) {
-        handle_connection($c);
-        close $c;
-    }
-    close $socket;
 }
 
 sub handleYAML {
@@ -232,6 +210,24 @@ sub build {
 
         # TODO
     }
+}
+
+sub server {
+    if ( $opts{watch} ) {
+        printf "Watching %s for changes\n", realpath( $config{SRC} );
+    }
+    my $port   = $config{PORT};
+    my $socket = IO::Socket::INET->new(
+        LocalPort => $port,
+        Listen    => SOMAXCONN,
+        Reuse     => 1
+    ) or die "Can't create listen socket: $!";
+    say "Started local dev server on $port!";
+    while ( my $c = $socket->accept ) {
+        handle_connection($c);
+        close $c;
+    }
+    close $socket;
 }
 
 =head1 NAME
