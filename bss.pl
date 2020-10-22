@@ -17,6 +17,22 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+=head1 NAME
+
+boring static site generator
+
+=head1 SYNOPSIS
+
+bss [options]
+
+     Options:
+       --help     	 prints this help message
+       --build		 builds _site dir
+       --server		 builds _site dir and serves it
+       --verbose     	 gets talkative
+       --watch		 watches src dir for changes
+=cut
+
 use v5.10;
 
 use autodie;
@@ -25,6 +41,7 @@ use Cwd qw(abs_path realpath);
 use Data::Dumper;
 use File::Find;
 use File::Basename;
+use File::ChangeNotify;
 use FindBin qw($Bin);
 use lib "$Bin/lib";
 use Getopt::Long qw(GetOptions);
@@ -64,8 +81,6 @@ my $tt_config = {
     ENCODING     => undef
 };
 
-mkdir( $config{DEST} ) unless -e $config{DEST};
-
 # set template toolkit options
 $config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
 $config{TT_CONFIG}->{ENCODING}     = $config{ENCODING};
@@ -83,16 +98,16 @@ GetOptions(
       )
 );
 
-say "
-	SRC: $config{SRC}
-	DEST: $config{DEST}
-	Excluding: $config{EXCLUDE}
-	Encoding: $config{ENCODING}
-	Watch: $opts{watch}
-	Server -
-	 PORT:$config{PORT}
-	 "
-  if $opts{verbose};
+say <<END
+SRC: $config{SRC}
+DEST: $config{DEST}
+Excluding: $config{EXCLUDE}
+Encoding: $config{ENCODING}
+Watch: $opts{watch}
+Server -
+ PORT:$config{PORT}
+END
+if $opts{verbose};
 
 do_build(%config) if $opts{build};
 server()          if $opts{server};
@@ -100,16 +115,19 @@ server()          if $opts{server};
 pod2usage(1) if $opts{help};
 
 sub do_build {
+    mkdir( $config{DEST} ) unless -e $config{DEST};
+    # FIXME: rm -rf seems like a bad idea
     system "rm", "-rf", $config{DEST};
     @collections = split /,/, $config{COLLECTIONS};
     my %collections = ();
     for my $dir (@collections) {
 
-        # this pushes an empty list into the hash...
+        # push an empty list into some hash:
         push( @{ $collections{$dir} }, () );
         find(
             sub {
                 next if $_ eq "." or $_ eq "..";
+		# FIXME: only picks up .md ext
                 $_ =~ s/\.md$/\.html/;
                 push @{ $collections{$dir} }, $_;
             },
@@ -134,6 +152,8 @@ sub do_build {
         },
         $config{SRC}
     );
+
+    return if $opts{watch};
 
     # thanks for stopping by!
     say "Site created in $config{DEST}!";
@@ -212,34 +232,34 @@ sub build {
 }
 
 sub server {
-    if ( $opts{watch} ) {
-        printf "Watching %s for changes\n", realpath( $config{SRC} );
-    }
     my $port   = $config{PORT};
+    # FIXME:
+    #  IO::Socket::INET, when waiting for the network, 
+    #  will block the whole process - that means all 
+    #  threads, which is clearly undesirable
     my $socket = IO::Socket::INET->new(
         LocalPort => $port,
         Listen    => SOMAXCONN,
         Reuse     => 1
     ) or die "Can't create listen socket: $!";
     say "Started local dev server on $port!";
+    #if ( $opts{watch} ) {
+    #        my $watcher = 
+    #        File::ChangeNotify->instantiate_watcher
+    #        ( directories => [ realpath( $config{SRC} ) ] );
+
+    #        printf "Watching %s for changes\n", realpath( $config{SRC} );
+    #        if ( my @events = $watcher->wait_for_events ) {
+    #    	    foreach my $event (@events) {
+    #    		    if ( $event->path =~ /.md$/ ) {
+    #    			say "Markdown file changed!";
+    #    		}
+    #    	}
+    #        }
+    #}
     while ( my $c = $socket->accept ) {
         handle_connection($c);
         close $c;
     }
     close $socket;
 }
-
-=head1 NAME
-
-boring static site generator
-
-=head1 SYNOPSIS
-
-[env] bss [options] [command]
-
-     Options:
-       --help     	 prints this help message
-       --build		 builds _site dir
-       --server		 builds _site dir and serves it
-       --verbose     	 gets talkative
-       --watch		 watches for changes
