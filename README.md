@@ -51,7 +51,7 @@ $ bss --server
 
 ## TODO
 - [] meta tags
-- [] handle no flag and don't mkdir _site 
+- [] add Coro so we can use the watch flag 
 
 ### Installing
 
