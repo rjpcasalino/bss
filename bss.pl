@@ -26,10 +26,10 @@ boring static site generator
 bss build [options]
 
      Options:
-       --help     	 prints this help message
+       --help     	 display this help message
        --server		 serves DEST dir
        --verbose     	 gets talkative
-       --watch		 watches src dir for changes
+       --watch		 watches SRC dir for changes
 =cut
 
 use v5.10;
