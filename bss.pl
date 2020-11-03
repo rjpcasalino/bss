@@ -71,7 +71,7 @@ mkdir( $config{DEST} ) unless -e $config{DEST};
 $config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
 $config{TT_CONFIG}->{ENCODING}     = $config{ENCODING};
 
-# TODO: build is a command not an option. server as well?
+my $cmd = shift or die pod2usage(1);
 my %opts = ( build => '', server => '', verbose => '', help => '' );
 
 GetOptions(
@@ -84,7 +84,7 @@ GetOptions(
       )
 );
 
-do_build(%config) if $opts{build};
+do_build(%config) if defined $cmd;
 server()          if $opts{server};
 
 pod2usage(1) if $opts{help};
@@ -244,7 +244,6 @@ boring static site generator
 
      Options:
        --help     	 prints this help message
-       --build		 builds _site dir
-       --server		 builds _site dir and serves it
        --verbose     	 gets talkative
-       --watch		 watches for changes
+       --server		 serves site
+       --watch		 watches site source for changes

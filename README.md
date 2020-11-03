@@ -41,10 +41,8 @@ Ensure the `BSS_DOCROOT` ENV var is set, like so:
 
 ```
 $ export BSS_DOCROOT=/path/to/your/_site/ 
-$ bss --server
+$ bss build --server
 ```
 
 ## TODO
 - [] meta tags
-- [] watch command line flag
-- [] handle no flag and don't mkdir _site 
