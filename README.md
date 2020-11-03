@@ -2,6 +2,8 @@
 
 # bss - boring static site generator
 
+A dead simple static site generator written in Perl with a little help from rsync.
+
 ## Getting Started
 
 	bss reads manifest.ini for its configuration options:
