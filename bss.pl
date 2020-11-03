@@ -17,6 +17,21 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+=head1 NAME
+
+boring static site generator
+
+=head1 SYNOPSIS
+
+bss [options]
+
+     Options:
+       --help     	 prints this help message
+       --server		 serves DEST dir
+       --verbose     	 gets talkative
+       --watch		 watches src dir for changes
+=cut
+
 use v5.10;
 
 use autodie;
@@ -25,6 +40,7 @@ use Cwd qw(abs_path realpath);
 use Data::Dumper;
 use File::Find;
 use File::Basename;
+use File::ChangeNotify;
 use FindBin qw($Bin);
 use lib "$Bin/lib";
 use Getopt::Long qw(GetOptions);
@@ -38,7 +54,7 @@ use Web;
 use YAML;
 
 my $manifest = "manifest.ini";
-say "No manifest.ini found!" and exit unless -e $manifest;
+print "No manifest.ini found!" and exit unless -e $manifest;
 
 $manifest = Config::IniFiles->new( -file => "manifest.ini" );
 my %config = (
@@ -50,7 +66,6 @@ my %config = (
     DEST        => $manifest->val( "build", "dest" )        // "_site",
     ENCODING    => $manifest->val( "build", "encoding" )    // "UTF-8",
     COLLECTIONS => $manifest->val( "build", "collections" ) // undef,
-    WATCH       => $manifest->val( "build", "watch" )       // "false",
     EXCLUDE => $manifest->val( "build",  "exclude" ) // "*.md, templates",
     PORT    => $manifest->val( "server", "port" )    // "9000",
     HOST    => $manifest->val( "server", "host" )    // "localhost"
@@ -65,60 +80,55 @@ my $tt_config = {
     ENCODING     => undef
 };
 
-mkdir( $config{DEST} ) unless -e $config{DEST};
-
 # set template toolkit options
 $config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
 $config{TT_CONFIG}->{ENCODING}     = $config{ENCODING};
 
 my $cmd = shift or die pod2usage(1);
-my %opts = ( build => '', server => '', verbose => '', help => '' );
+my %opts = ( server => '', verbose => '', help => '' );
 
 GetOptions(
     \%opts, qw(
       build
+      server
       verbose
       help
-      server
       watch
       )
 );
 
 do_build(%config) if defined $cmd;
+
+say <<END
+SRC: $config{SRC}
+DEST: $config{DEST}
+Excluding: $config{EXCLUDE}
+Encoding: $config{ENCODING}
+Watch: $opts{watch}
+Server -
+ PORT:$config{PORT}
+END
+if $opts{verbose};
+
 server()          if $opts{server};
 
 pod2usage(1) if $opts{help};
 
-say "--manifest--" if $opts{verbose};
-foreach $key ( sort keys %config ) {
-    $value = $config{$key};
-    say "$key: $value" if $opts{verbose};
-}
-
-$greetings = "Hello!\t Bonjour!\t Welcome!\t";
-say "
-	$greetings
-	SRC: $config{SRC}
-	DEST: $config{DEST}
-	Excluding: $config{EXCLUDE}
-	Encoding: $config{ENCODING}
-	Server -
-	 PORT:$config{PORT}
-	 "
-  if $opts{verbose};
-
 sub do_build {
+    mkdir( $config{DEST} ) unless -e $config{DEST};
+    # FIXME: rm -rf seems like a bad idea
     system "rm", "-rf", $config{DEST};
     @collections = split /,/, $config{COLLECTIONS};
     my %collections = ();
     for my $dir (@collections) {
 
-        # this pushes an empty list into the hash...
+        # push an empty list into some hash:
         push( @{ $collections{$dir} }, () );
         find(
             sub {
                 next if $_ eq "." or $_ eq "..";
-		$_ =~ s/\.md$/\.html/;
+		# FIXME: only picks up .md ext
+                $_ =~ s/\.md$/\.html/;
                 push @{ $collections{$dir} }, $_;
             },
             File::Spec->catfile( $config{SRC}, $dir )
@@ -143,24 +153,11 @@ sub do_build {
         $config{SRC}
     );
 
+    return if $opts{watch};
+
     # thanks for stopping by!
     say "Site created in $config{DEST}!";
     1;
-}
-
-sub server {
-    my $port   = $config{PORT};
-    my $socket = IO::Socket::INET->new(
-        LocalPort => $port,
-        Listen    => SOMAXCONN,
-        Reuse     => 1
-    ) or die "Can't create listen socket: $!";
-    say "Started local dev server on $port!";
-    while ( my $c = $socket->accept ) {
-        handle_connection($c);
-        close $c;
-    }
-    close $socket;
 }
 
 sub handleYAML {
@@ -234,16 +231,35 @@ sub build {
     }
 }
 
-=head1 NAME
+sub server {
+    my $port   = $config{PORT};
+    # FIXME:
+    #  IO::Socket::INET, when waiting for the network, 
+    #  will block the whole process - that means all 
+    #  threads, which is clearly undesirable
+    my $socket = IO::Socket::INET->new(
+        LocalPort => $port,
+        Listen    => SOMAXCONN,
+        Reuse     => 1
+    ) or die "Can't create listen socket: $!";
+    say "Started local dev server on $port!";
+    #if ( $opts{watch} ) {
+    #        my $watcher = 
+    #        File::ChangeNotify->instantiate_watcher
+    #        ( directories => [ realpath( $config{SRC} ) ] );
 
-boring static site generator
-
-=head1 SYNOPSIS
-
-[env] bss [options] [command]
-
-     Options:
-       --help     	 prints this help message
-       --verbose     	 gets talkative
-       --server		 serves site
-       --watch		 watches site source for changes
+    #        printf "Watching %s for changes\n", realpath( $config{SRC} );
+    #        if ( my @events = $watcher->wait_for_events ) {
+    #    	    foreach my $event (@events) {
+    #    		    if ( $event->path =~ /.md$/ ) {
+    #    			say "Markdown file changed!";
+    #    		}
+    #    	}
+    #        }
+    #}
+    while ( my $c = $socket->accept ) {
+        handle_connection($c);
+        close $c;
+    }
+    close $socket;
+}
