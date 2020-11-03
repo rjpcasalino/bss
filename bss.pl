@@ -23,7 +23,7 @@ boring static site generator
 
 =head1 SYNOPSIS
 
-bss [options]
+bss build [options]
 
      Options:
        --help     	 prints this help message
@@ -40,7 +40,6 @@ use Cwd qw(abs_path realpath);
 use Data::Dumper;
 use File::Find;
 use File::Basename;
-use File::ChangeNotify;
 use FindBin qw($Bin);
 use lib "$Bin/lib";
 use Getopt::Long qw(GetOptions);
@@ -84,7 +83,7 @@ my $tt_config = {
 $config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
 $config{TT_CONFIG}->{ENCODING}     = $config{ENCODING};
 
-my $cmd = shift or die pod2usage(1);
+my $cmd  = shift or die pod2usage(1);
 my %opts = ( server => '', verbose => '', help => '' );
 
 GetOptions(
@@ -108,14 +107,15 @@ Watch: $opts{watch}
 Server -
  PORT:$config{PORT}
 END
-if $opts{verbose};
+  if $opts{verbose};
 
-server()          if $opts{server};
+server() if $opts{server};
 
 pod2usage(1) if $opts{help};
 
 sub do_build {
     mkdir( $config{DEST} ) unless -e $config{DEST};
+
     # FIXME: rm -rf seems like a bad idea
     system "rm", "-rf", $config{DEST};
     @collections = split /,/, $config{COLLECTIONS};
@@ -127,7 +127,8 @@ sub do_build {
         find(
             sub {
                 next if $_ eq "." or $_ eq "..";
-		# FIXME: only picks up .md ext
+
+                # FIXME: only picks up .md ext
                 $_ =~ s/\.md$/\.html/;
                 push @{ $collections{$dir} }, $_;
             },
@@ -232,10 +233,11 @@ sub build {
 }
 
 sub server {
-    my $port   = $config{PORT};
+    my $port = $config{PORT};
+
     # FIXME:
-    #  IO::Socket::INET, when waiting for the network, 
-    #  will block the whole process - that means all 
+    #  IO::Socket::INET, when waiting for the network,
+    #  will block the whole process - that means all
     #  threads, which is clearly undesirable
     my $socket = IO::Socket::INET->new(
         LocalPort => $port,
@@ -243,8 +245,9 @@ sub server {
         Reuse     => 1
     ) or die "Can't create listen socket: $!";
     say "Started local dev server on $port!";
+
     #if ( $opts{watch} ) {
-    #        my $watcher = 
+    #        my $watcher =
     #        File::ChangeNotify->instantiate_watcher
     #        ( directories => [ realpath( $config{SRC} ) ] );
 
