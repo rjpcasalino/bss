@@ -154,8 +154,6 @@ sub do_build {
         $config{SRC}
     );
 
-    return if $opts{watch};
-
     # thanks for stopping by!
     say "Site created in $config{DEST}!";
     1;
@@ -245,7 +243,7 @@ sub server {
         Reuse     => 1
     ) or die "Can't create listen socket: $!";
     say "Started local dev server on $port!";
-
+    say "Watching..." if $opts{watch};
     #if ( $opts{watch} ) {
     #        my $watcher =
     #        File::ChangeNotify->instantiate_watcher
