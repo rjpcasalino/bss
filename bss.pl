@@ -40,6 +40,7 @@ use Cwd qw(abs_path realpath);
 use Data::Dumper;
 use File::Find;
 use File::Basename;
+use File::Spec::Functions qw(catfile);
 use FindBin qw($Bin);
 use lib "$Bin/lib";
 use Getopt::Long qw(GetOptions);
@@ -51,6 +52,9 @@ use Template;
 use IO::Socket;
 use Web;
 use YAML;
+
+my $script = File::Basename::basename($0);
+my $SELF   = catfile( $FindBin::Bin, $script );
 
 my $manifest = "manifest.ini";
 print "No manifest.ini found!" and exit unless -e $manifest;
@@ -83,12 +87,11 @@ my $tt_config = {
 $config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
 $config{TT_CONFIG}->{ENCODING}     = $config{ENCODING};
 
-my $cmd  = shift or die pod2usage(1);
+my ($cmd) = @ARGV;
 my %opts = ( server => '', verbose => '', help => '' );
 
 GetOptions(
     \%opts, qw(
-      build
       server
       verbose
       help
@@ -96,7 +99,13 @@ GetOptions(
       )
 );
 
-do_build(%config) if defined $cmd;
+$SIG{INT} = sub {
+    @ARGV = qw(build --server --watch);
+
+    #exec($SELF, @ARGV) or die "$0: couldn't restart: $!";
+};
+
+do_build(%config) if defined $cmd and $cmd =~ /[bB]uild/ or die pod2usage(1);
 
 say <<END
 SRC: $config{SRC}
@@ -109,8 +118,7 @@ Server -
 END
   if $opts{verbose};
 
-server() if $opts{server};
-
+server()     if $opts{server};
 pod2usage(1) if $opts{help};
 
 sub do_build {
@@ -154,12 +162,11 @@ sub do_build {
         $config{SRC}
     );
 
-    # thanks for stopping by!
     say "Site created in $config{DEST}!";
     1;
 }
 
-sub handleYAML {
+sub handle_yaml {
     my $yaml;
     open $MD, $_;
     undef $/;
@@ -167,10 +174,10 @@ sub handleYAML {
     if ( $data =~ /---(.+)---/s ) {
         $yaml = Load($1);
     }
-    writehtml( $_, $yaml );
+    write_html( $_, $yaml );
 }
 
-sub writehtml {
+sub write_html {
     my ( $html, $yaml ) = @_;
     $html =~ s/\.md$/\.html/;
 
@@ -222,7 +229,7 @@ sub build {
         }
     }
     elsif ( $_ =~ /.md$/ ) {
-        handleYAML();
+        handle_yaml();
     }
     elsif ( $_ =~ /.png|.jpg|.jpeg|.gif|.svg$/i ) {
 
@@ -244,6 +251,7 @@ sub server {
     ) or die "Can't create listen socket: $!";
     say "Started local dev server on $port!";
     say "Watching..." if $opts{watch};
+
     #if ( $opts{watch} ) {
     #        my $watcher =
     #        File::ChangeNotify->instantiate_watcher
