@@ -56,39 +56,9 @@ use YAML;
 my $script = File::Basename::basename($0);
 my $SELF   = catfile( $FindBin::Bin, $script );
 
-my $manifest = "manifest.ini";
-print "No manifest.ini found!" and exit unless -e $manifest;
-
-$manifest = Config::IniFiles->new( -file => "manifest.ini" );
-my %config = (
-    TT_CONFIG => \%tt_config,
-    TT_DIR =>
-      realpath( $manifest->val( "build", "templates_dir" ) // "templates" ),
-    SRC => $manifest->val( "build", "src" )
-      // "src",    # TODO: disallow back/forward slashes
-    DEST        => $manifest->val( "build", "dest" )        // "_site",
-    ENCODING    => $manifest->val( "build", "encoding" )    // "UTF-8",
-    COLLECTIONS => $manifest->val( "build", "collections" ) // undef,
-    EXCLUDE => $manifest->val( "build",  "exclude" ) // "*.md, templates",
-    PORT    => $manifest->val( "server", "port" )    // "9000",
-    HOST    => $manifest->val( "server", "host" )    // "localhost"
-);
-
-# TEMPLATE TOOLKIT #
-my $tt_config = {
-    INCLUDE_PATH => undef,
-    INTERPOLATE  => 1,
-    EVAL_PERL    => 1,
-    RELATIVE     => 1,
-    ENCODING     => undef
-};
-
-# set template toolkit options
-$config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
-$config{TT_CONFIG}->{ENCODING}     = $config{ENCODING};
-
 my ($cmd) = @ARGV;
 my %opts = ( server => '', verbose => '', help => '' );
+my $manifest = "manifest.ini";
 
 GetOptions(
     \%opts, qw(
@@ -105,51 +75,83 @@ $SIG{INT} = sub {
     #exec($SELF, @ARGV) or die "$0: couldn't restart: $!";
 };
 
-do_build(%config) if defined $cmd and $cmd =~ /[bB]uild/ or die pod2usage(1);
+do_build() if defined $cmd and $cmd =~ /[bB]uild/ or die pod2usage(1);
 
-say <<END
-SRC: $config{SRC}
-DEST: $config{DEST}
-Excluding: $config{EXCLUDE}
-Encoding: $config{ENCODING}
-Watch: $opts{watch}
-Server -
- PORT:$config{PORT}
-END
-  if $opts{verbose};
-
-server()     if $opts{server};
 pod2usage(1) if $opts{help};
 
 sub do_build {
-    mkdir( $config{DEST} ) unless -e $config{DEST};
 
-    # FIXME: rm -rf seems like a bad idea
-    system "rm", "-rf", $config{DEST};
-    @collections = split /,/, $config{COLLECTIONS};
-    my %collections = ();
-    for my $dir (@collections) {
+	$manifest = Config::IniFiles->new( -file => "manifest.ini" );
 
-        # push an empty list into some hash:
-        push( @{ $collections{$dir} }, () );
-        find(
-            sub {
-                next if $_ eq "." or $_ eq "..";
+	# Main config (gets passed around...)
+	my %config = (
+	    TT_CONFIG => \%tt_config,
+	    TT_DIR =>
+	      realpath( $manifest->val( "build", "templates_dir" ) // "templates" ),
+	    SRC => $manifest->val( "build", "src" )
+	      // "src",    # TODO: disallow back/forward slashes
+	    DEST        => $manifest->val( "build", "dest" )        // "_site",
+	    ENCODING    => $manifest->val( "build", "encoding" )    // "UTF-8",
+	    COLLECTIONS => $manifest->val( "build", "collections" ) // undef,
+	    EXCLUDE => $manifest->val( "build",  "exclude" ) // "*.md, templates",
+	    PORT    => $manifest->val( "server", "port" )    // "9000",
+	    HOST    => $manifest->val( "server", "host" )    // "localhost"
+	);
 
-                # FIXME: only picks up .md ext
-                $_ =~ s/\.md$/\.html/;
-                push @{ $collections{$dir} }, $_;
-            },
-            File::Spec->catfile( $config{SRC}, $dir )
-        );
+	# Template Toolkit #
+	my $tt_config = {
+	    INCLUDE_PATH => undef,
+	    INTERPOLATE  => 1,
+	    EVAL_PERL    => 1,
+	    RELATIVE     => 1,
+	    ENCODING     => undef
+	};
+
+	# set template toolkit options
+	$config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
+	$config{TT_CONFIG}->{ENCODING}     = $config{ENCODING};
+
+	say qq{
+		SRC: $config{SRC}
+		DEST: $config{DEST}
+		Excluding: $config{EXCLUDE}
+		Encoding: $config{ENCODING}
+		Watch: $opts{watch}
+		Server -
+		 PORT:$config{PORT}
+	 } if $opts{verbose};
+	 
+	mkdir( $config{DEST} ) unless -e $config{DEST};
+	
+	# FIXME: rm -rf seems like a bad idea
+    	system "rm", "-rf", $config{DEST};
+	@collections = split /,/, $config{COLLECTIONS};
+	my %collections = ();
+	for my $dir (@collections) {
+		# push an empty list into some hash:
+		push( @{ $collections{$dir} }, () );
+		find(
+		    sub {
+			next if $_ eq "." or $_ eq "..";
+
+			# FIXME: only picks up .md ext
+			$_ =~ s/\.md$/\.html/;
+			push @{ $collections{$dir} }, $_;
+		    },
+		    File::Spec->catfile( $config{SRC}, $dir )
+		);
         $config{COLLECTIONS} = \%collections;
     }
-    find( \&build, $config{SRC} );
+
+    # the actual build; note the sub and wanted here
+    find( { wanted => sub { \&build(%config) } }, $config{SRC} );
+
     open my $exclude_fh, ">", "exclude.txt";
     @excludes = split /,/, $config{EXCLUDE};
     for $line (@excludes) {
         say $exclude_fh "$line";
     }
+
     system "rsync", "-avmh", "--exclude-from=exclude.txt", $config{SRC},
       $config{DEST};
 
@@ -163,22 +165,43 @@ sub do_build {
     );
 
     say "Site created in $config{DEST}!";
-    1;
+    server(%config)     if $opts{server};
+}
+
+sub build {
+    my %config = @_;
+    my $filename = $_;
+    if ( -d $filename ) {
+
+        # FIXME
+        if ( $_ =~ /$config{TT_DIR}/ ) {
+            say "Ignoring: $File::Find::name" if $opts{verbose};
+            $File::Find::prune = 1;
+        }
+    }
+    elsif ( $_ =~ /.md$/ ) {
+        handle_yaml(%config);
+    }
+    elsif ( $_ =~ /.png|.jpg|.jpeg|.gif|.svg$/i ) {
+        # TODO
+    }
 }
 
 sub handle_yaml {
+    my %config = @_;
     my $yaml;
-    open $MD, $_;
+    my $markdown = $_;
+    open $MD, $markdown;
     undef $/;
     my $data = <$MD>;
     if ( $data =~ /---(.+)---/s ) {
         $yaml = Load($1);
     }
-    write_html( $_, $yaml );
+    write_html( $markdown, $yaml, %config );
 }
 
 sub write_html {
-    my ( $html, $yaml ) = @_;
+    my ( $html, $yaml, %config ) = @_;
     $html =~ s/\.md$/\.html/;
 
     my $template = Template->new( $config{TT_CONFIG} );
@@ -197,8 +220,6 @@ sub write_html {
 
     my $site_modified = strftime '%c', localtime();
 
-    # my $page_modified;
-
     my $vars = {
         title         => $yaml->{title},
         body          => \@body,
@@ -207,7 +228,8 @@ sub write_html {
     };
     find(
         sub {
-            if ( $_ =~ /$yaml->{layout}(.tmpl|.template|.html|.tt|.tt2)$/ ) {
+            if ( $_ =~ /$yaml->{layout}(.tmpl|.template|.html|.tt|.tt2)$/ )
+	    {
                 $yaml->{layout} = $_;
             }
         },
@@ -218,26 +240,8 @@ sub write_html {
     say "$yaml->{title} processed." if $opts{verbose};
 }
 
-sub build {
-    my $filename = $_;
-    if ( -d $filename ) {
-
-        # FIXME
-        if ( $_ =~ /^$config{SRC}|^$config{TT_DIR}/ ) {
-            say "Ignoring: $File::Find::name" if $opts{verbose};
-            $File::Find::prune = 1;
-        }
-    }
-    elsif ( $_ =~ /.md$/ ) {
-        handle_yaml();
-    }
-    elsif ( $_ =~ /.png|.jpg|.jpeg|.gif|.svg$/i ) {
-
-        # TODO
-    }
-}
-
 sub server {
+    my %config = @_;
     my $port = $config{PORT};
 
     # FIXME:
