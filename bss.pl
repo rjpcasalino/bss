@@ -81,6 +81,7 @@ pod2usage(1) if $opts{help};
 
 sub do_build {
 
+	print "bss: No manifest.ini found!" and exit unless -e $manifest;
 	$manifest = Config::IniFiles->new( -file => "manifest.ini" );
 
 	# Main config (gets passed around...)
