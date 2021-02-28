@@ -27,11 +27,15 @@ bss build [options]
 
      Options:
        --help     	 display this help message
-       --server		 serves DEST dir
+       --server		 serves DEST
        --verbose     	 gets talkative
-       --watch		 watches SRC dir for changes
+       --watch		 watches SRC for changes
 =cut
 
+# FIXME:
+# use perl 5.32
+# autodie et al
+# might be core modules nowadays
 use v5.10;
 
 use autodie;
@@ -45,7 +49,8 @@ use FindBin qw($Bin);
 use lib "$Bin/lib";
 use Getopt::Long qw(GetOptions);
 use IO::File;
-use POSIX qw(strftime);
+use Log::Log4perl::Config::Watch;
+use POSIX qw(setsid strftime);
 use Pod::Usage qw(pod2usage);
 use Text::Markdown qw(markdown);
 use Template;
@@ -56,9 +61,15 @@ use YAML;
 my $script = File::Basename::basename($0);
 my $SELF   = catfile( $FindBin::Bin, $script );
 
-my ($cmd) = @ARGV;
-my %opts = ( server => '', verbose => '', help => '' );
+my ($cmd)    = @ARGV;
+my %opts     = ( server => '', verbose => '', help => '' );
 my $manifest = "manifest.ini";
+my $quit     = 0;
+
+$SIG{CHLD} = sub {
+    while ( waitpid( -1, WNOHANG ) > 0 ) { }
+};
+$SIG{INT} = sub { $quit++ };
 
 GetOptions(
     \%opts, qw(
@@ -69,50 +80,44 @@ GetOptions(
       )
 );
 
-$SIG{INT} = sub {
-    @ARGV = qw(build --server --watch);
-
-    #exec($SELF, @ARGV) or die "$0: couldn't restart: $!";
-};
-
 do_build() if defined $cmd and $cmd =~ /[bB]uild/ or die pod2usage(1);
 
 pod2usage(1) if $opts{help};
 
 sub do_build {
 
-	print "bss: No manifest.ini found!" and exit unless -e $manifest;
-	$manifest = Config::IniFiles->new( -file => "manifest.ini" );
+    print "bss: No manifest.ini found!" and exit unless -e $manifest;
+    $manifest = Config::IniFiles->new( -file => "manifest.ini" );
 
-	# Main config (gets passed around...)
-	my %config = (
-	    TT_CONFIG => \%tt_config,
-	    TT_DIR =>
-	      realpath( $manifest->val( "build", "templates_dir" ) // "templates" ),
-	    SRC => $manifest->val( "build", "src" )
-	      // "src",    # TODO: disallow back/forward slashes
-	    DEST        => $manifest->val( "build", "dest" )        // "_site",
-	    ENCODING    => $manifest->val( "build", "encoding" )    // "UTF-8",
-	    COLLECTIONS => $manifest->val( "build", "collections" ) // undef,
-	    EXCLUDE => $manifest->val( "build",  "exclude" ) // "*.md, templates",
-	    PORT    => $manifest->val( "server", "port" )    // "9000",
-	    HOST    => $manifest->val( "server", "host" )    // "localhost"
-	);
+    # Main config (gets passed around...)
+    my %config = (
+        TT_CONFIG => \%tt_config,
+        TT_DIR =>
+          realpath( $manifest->val( "build", "templates_dir" ) // "templates" ),
+        SRC => $manifest->val( "build", "src" )
+          // "src",    # TODO: disallow back/forward slashes
+        DEST        => $manifest->val( "build", "dest" )        // "_site",
+        ENCODING    => $manifest->val( "build", "encoding" )    // "UTF-8",
+        COLLECTIONS => $manifest->val( "build", "collections" ) // undef,
+        EXCLUDE => $manifest->val( "build",  "exclude" ) // "*.md, templates",
+        PORT    => $manifest->val( "server", "port" )    // "9000",
+        HOST    => $manifest->val( "server", "host" )    // "localhost"
+    );
 
-	# Template Toolkit #
-	my $tt_config = {
-	    INCLUDE_PATH => undef,
-	    INTERPOLATE  => 1,
-	    EVAL_PERL    => 1,
-	    RELATIVE     => 1,
-	    ENCODING     => undef
-	};
+    # Template Toolkit #
+    my $tt_config = {
+        INCLUDE_PATH => undef,
+        INTERPOLATE  => 1,
+        EVAL_PERL    => 1,
+        RELATIVE     => 1,
+        ENCODING     => undef
+    };
 
-	# set template toolkit options
-	$config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
-	$config{TT_CONFIG}->{ENCODING}     = $config{ENCODING};
+    # set template toolkit options
+    $config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
+    $config{TT_CONFIG}->{ENCODING}     = $config{ENCODING};
 
-	say qq{
+    say qq{
 		SRC: $config{SRC}
 		DEST: $config{DEST}
 		Excluding: $config{EXCLUDE}
@@ -121,32 +126,40 @@ sub do_build {
 		Server -
 		 PORT:$config{PORT}
 	 } if $opts{verbose};
-	 
-	mkdir( $config{DEST} ) unless -e $config{DEST};
-	
-	# FIXME: rm -rf seems like a bad idea
-    	system "rm", "-rf", $config{DEST};
-	@collections = split /,/, $config{COLLECTIONS};
-	my %collections = ();
-	for my $dir (@collections) {
-		# push an empty list into some hash:
-		push( @{ $collections{$dir} }, () );
-		find(
-		    sub {
-			next if $_ eq "." or $_ eq "..";
 
-			# FIXME: only picks up .md ext
-			$_ =~ s/\.md$/\.html/;
-			push @{ $collections{$dir} }, $_;
-		    },
-		    File::Spec->catfile( $config{SRC}, $dir )
-		);
+    mkdir( $config{DEST} ) unless -e $config{DEST};
+
+    # FIXME: rm -rf seems like a bad idea
+    system "rm", "-rf", $config{DEST};
+    @collections = split /,/, $config{COLLECTIONS};
+    my %collections = ();
+    for my $dir (@collections) {
+
+        # push an empty list into some hash:
+        push( @{ $collections{$dir} }, () );
+        find(
+            sub {
+                next if $_ eq "." or $_ eq "..";
+
+                # FIXME: only picks up .md ext
+                $_ =~ s/\.md$/\.html/;
+                push @{ $collections{$dir} }, $_;
+            },
+            File::Spec->catfile( $config{SRC}, $dir )
+        );
         $config{COLLECTIONS} = \%collections;
     }
 
     # the actual build; note the sub and wanted here
-    find( { wanted => sub { \&build(%config) } }, $config{SRC} );
+    find(
+        {
+            wanted => sub { \&build(%config) }
+        },
+        $config{SRC}
+    );
 
+    # since rsync is annoying...it is easy
+    # to exclude things using a file, however.
     open my $exclude_fh, ">", "exclude.txt";
     @excludes = split /,/, $config{EXCLUDE};
     for $line (@excludes) {
@@ -166,11 +179,11 @@ sub do_build {
     );
 
     say "Site created in $config{DEST}!";
-    server(%config)     if $opts{server};
+    server(%config) if $opts{server};
 }
 
 sub build {
-    my %config = @_;
+    my %config   = @_;
     my $filename = $_;
     if ( -d $filename ) {
 
@@ -184,6 +197,7 @@ sub build {
         handle_yaml(%config);
     }
     elsif ( $_ =~ /.png|.jpg|.jpeg|.gif|.svg$/i ) {
+
         # TODO
     }
 }
@@ -193,6 +207,8 @@ sub handle_yaml {
     my $yaml;
     my $markdown = $_;
     open $MD, $markdown;
+
+    # flush that shit...
     undef $/;
     my $data = <$MD>;
     if ( $data =~ /---(.+)---/s ) {
@@ -211,7 +227,10 @@ sub write_html {
     open $MD, $_;
     while (<$MD>) {
 
-        # FIXME
+        # FIXME:
+        # hacky way to get rid of the YAML
+        # block. That should be gone before
+        # this...alas, here we are...
         if ( $_ =~ /(---(.+)---)/s ) {
             s/$1//g;
         }
@@ -227,10 +246,11 @@ sub write_html {
         collections   => $config{COLLECTIONS},
         site_modified => $site_modified,
     };
+
+    # select layout (template)
     find(
         sub {
-            if ( $_ =~ /$yaml->{layout}(.tmpl|.template|.html|.tt|.tt2)$/ )
-	    {
+            if ( $_ =~ /$yaml->{layout}(.tmpl|.template|.html|.tt|.tt2)$/ ) {
                 $yaml->{layout} = $_;
             }
         },
@@ -243,37 +263,36 @@ sub write_html {
 
 sub server {
     my %config = @_;
-    my $port = $config{PORT};
 
-    # FIXME:
-    #  IO::Socket::INET, when waiting for the network,
-    #  will block the whole process - that means all
-    #  threads, which is clearly undesirable
-    my $socket = IO::Socket::INET->new(
-        LocalPort => $port,
+    my $listen_socket = IO::Socket::INET->new(
+        LocalPort => $config{PORT},
         Listen    => SOMAXCONN,
         Reuse     => 1
     ) or die "Can't create listen socket: $!";
-    say "Started local dev server on $port!";
-    say "Watching..." if $opts{watch};
+    say "Started local dev server on $config{PORT}!";
 
-    #if ( $opts{watch} ) {
-    #        my $watcher =
-    #        File::ChangeNotify->instantiate_watcher
-    #        ( directories => [ realpath( $config{SRC} ) ] );
+    my $watcher = Log::Log4perl::Config::Watch->new(
+        file           => $config{SRC},
+        check_interval => 1,
+    );
 
-    #        printf "Watching %s for changes\n", realpath( $config{SRC} );
-    #        if ( my @events = $watcher->wait_for_events ) {
-    #    	    foreach my $event (@events) {
-    #    		    if ( $event->path =~ /.md$/ ) {
-    #    			say "Markdown file changed!";
-    #    		}
-    #    	}
-    #        }
-    #}
-    while ( my $c = $socket->accept ) {
-        handle_connection($c);
-        close $c;
+    while ( !$quit ) {
+
+        next unless $connection = $listen_socket->accept;
+
+        defined( my $child = fork() ) or die "Can't fork: $!";
+
+        if ( $child == 0 ) {
+            $listen_socket->close;
+            handle_connection($connection);
+            if ( $watcher->change_detected() ) {
+                say "Change in $config{SRC}!";
+                say "Doing a rebuild...";
+                sleep 1;
+                exec( $SELF, "build" );
+            }
+            exit 0;
+        }
+        $connection->close;
     }
-    close $socket;
 }

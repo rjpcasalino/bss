@@ -36,6 +36,9 @@ sub handle_connection {
 	return unless $method eq 'GET';
 
 	# print the content
+	#STDIN->fdopen($c, "<", "/dev/null") or die "Can't reopen STDIN: $!";
+	#STDOUT->fdopen($c, ">", "/dev/null") or die "Can't reopen STDIN: $!";
+	#STDERR->fdopen($c, ">&", STDOUT) or die "Can't reopen STDIN: $!";
 	my $buffer;
 	while ( read($fh, $buffer, 1024) ) {
 		print $c $buffer;
