@@ -62,7 +62,7 @@ my $script = File::Basename::basename($0);
 my $SELF   = catfile( $FindBin::Bin, $script );
 
 my ($cmd)    = @ARGV;
-my %opts     = ( server => '', verbose => '', help => '' );
+my %opts     = ( server => '', verbose => '', help => '', watch => '' );
 my $manifest = "manifest.ini";
 my $quit     = 0;
 
@@ -278,7 +278,7 @@ sub server {
 
     while ( !$quit ) {
 
-        if ( $watcher->change_detected() ) {
+        if ( $opts{watch} and $watcher->change_detected() ) {
             say "Change in $config{SRC}!";
             say "Doing a rebuild...";
             exec( $SELF, qw(build --server --watch) );
