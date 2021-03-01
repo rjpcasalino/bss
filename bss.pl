@@ -272,11 +272,18 @@ sub server {
     say "Started local dev server on $config{PORT}!";
 
     my $watcher = Log::Log4perl::Config::Watch->new(
-        file           => $config{SRC},
-        check_interval => 1,
+        file           => "$config{SRC}",
+        check_interval => 2,
     );
 
     while ( !$quit ) {
+
+        if ( $watcher->change_detected() ) {
+            say "Change in $config{SRC}!";
+            say "Doing a rebuild...";
+            exec( $SELF, qw(build --server --watch) );
+            exit 0;
+        }
 
         next unless $connection = $listen_socket->accept;
 
@@ -285,12 +292,6 @@ sub server {
         if ( $child == 0 ) {
             $listen_socket->close;
             handle_connection($connection);
-            if ( $watcher->change_detected() ) {
-                say "Change in $config{SRC}!";
-                say "Doing a rebuild...";
-                sleep 1;
-                exec( $SELF, "build" );
-            }
             exit 0;
         }
         $connection->close;
