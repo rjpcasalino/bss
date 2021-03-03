@@ -53,4 +53,4 @@ $ BSS_DOCROOT=/path/to/your/_site bss build --server --watch
 
 ### Installing
 
-I've been using [fatpack](https://metacpan.org/pod/App::FatPacker).
+I've been using [fatpack](https://metacpan.org/pod/App::FatPacker). This won't work with XS modules. So, this also needs to be fixed.
