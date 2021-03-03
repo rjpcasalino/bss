@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # bss - boring static site generator
-# Copyright (C) 2020  Ryan Joseph Patrick Casalino
+# Copyright (C) 2021  Ryan Joseph Patrick Casalino
 #
 
 # This program is free software: you can redistribute it and/or modify
@@ -29,7 +29,7 @@ bss build [options]
        --help     	 display this help message
        --server		 serves DEST
        --verbose     	 gets talkative
-       --watch		 watches SRC for changes
+       --watch		 watches SRC markdown files
 =cut
 
 # FIXME:
@@ -272,7 +272,7 @@ sub server {
     say "Started local dev server on $config{PORT}!";
 
     my $watcher = Log::Log4perl::Config::Watch->new(
-        file           => "$config{SRC}",
+        file           => /$config{SRC}\/*.md$/,
         check_interval => 2,
     );
 
