@@ -53,4 +53,4 @@ $ BSS_DOCROOT=/path/to/your/_site bss build --server --watch
 
 ### Installing
 
-I've been using [fatpack](https://metacpan.org/pod/distribution/App-FatPacker/bin/fatpack).
+I've been using [fatpack](https://metacpan.org/pod/App::FatPacker).
