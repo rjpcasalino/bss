@@ -167,11 +167,11 @@ sub do_build {
     }
 
     # rsync info
-    my $_info_flags = "NONE";
-    $info = "ALL" if $opts{verbose};
+    my $info_flags = "NONE";
+    $info_flags = "ALL" if $opts{verbose};
 
     system "rsync", "-avmh", "--exclude-from=exclude.txt",
-      "--info=$_info_flags", $config{SRC},
+      "--info=$info_flags", $config{SRC},
       $config{DEST};
 
     # house cleaning
