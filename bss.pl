@@ -158,15 +158,19 @@ sub do_build {
         $config{SRC}
     );
 
-    # since rsync is annoying...it is easy
-    # to exclude things using a file, however.
+    # rsync is annoying...
+    # easy to exclude things using a file, however.
     open my $exclude_fh, ">", "exclude.txt";
     @excludes = split /,/, $config{EXCLUDE};
     for $line (@excludes) {
         say $exclude_fh "$line";
     }
 
-    system "rsync", "-avmh", "--exclude-from=exclude.txt", $config{SRC},
+    # rsync info
+    my $_info_flags = "NONE";
+    $info = "ALL" if $opts{verbose};
+
+    system "rsync", "-avmh", "--exclude-from=exclude.txt", "--info=$_info_flags", $config{SRC},
       $config{DEST};
 
     # house cleaning
