@@ -27,9 +27,8 @@ bss build [options]
 
      Options:
        --help     	 display this help message
-       --server		 serves DEST
+       --server		 serves config DEST
        --verbose     	 gets talkative
-       --watch		 watches SRC markdown files
 =cut
 
 # FIXME:
@@ -62,7 +61,7 @@ my $script = File::Basename::basename($0);
 my $SELF   = catfile( $FindBin::Bin, $script );
 
 my ($cmd)    = @ARGV;
-my %opts     = ( server => '', verbose => '', help => '', watch => '' );
+my %opts     = ( server => '', verbose => '', help => '');
 my $manifest = "manifest.ini";
 my $quit     = 0;
 
@@ -76,7 +75,6 @@ GetOptions(
       server
       verbose
       help
-      watch
       )
 );
 
@@ -122,14 +120,12 @@ sub do_build {
 		DEST: $config{DEST}
 		Excluding: $config{EXCLUDE}
 		Encoding: $config{ENCODING}
-		Watch: $opts{watch}
 		Server -
 		 PORT:$config{PORT}
 	 } if $opts{verbose};
 
     mkdir( $config{DEST} ) unless -e $config{DEST};
 
-    # FIXME: rm -rf seems like a bad idea
     system "rm", "-rf", $config{DEST};
     @collections = split /,/, $config{COLLECTIONS};
     my %collections = ();
@@ -276,19 +272,7 @@ sub server {
     ) or die "Can't create listen socket: $!";
     say "Started local dev server on $config{PORT}!";
 
-    my $watcher = Log::Log4perl::Config::Watch->new(
-        file           => /$config{SRC}\/*.md$/,
-        check_interval => 2,
-    );
-
     while ( !$quit ) {
-
-        if ( $opts{watch} and $watcher->change_detected() ) {
-            say "Change in $config{SRC}!";
-            say "Doing a rebuild...";
-            exec( $SELF, qw(build --server --watch) );
-            exit 0;
-        }
 
         next unless $connection = $listen_socket->accept;
 
