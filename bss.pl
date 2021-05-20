@@ -31,11 +31,7 @@ bss build [options]
        --verbose     	 gets talkative
 =cut
 
-# FIXME:
-# use perl 5.32
-# autodie et al
-# might be core modules nowadays
-use v5.10;
+use v5.32;
 
 use autodie;
 use Config::IniFiles;
@@ -66,7 +62,7 @@ my $manifest = "manifest.ini";
 my $quit     = 0;
 
 $SIG{CHLD} = sub {
-    while ( waitpid( -1, WNOHANG ) > 0 ) { }
+    while ( waitpid( -1, "WNOHANG" ) > 0 ) { }
 };
 $SIG{INT} = sub { $quit++ };
 
@@ -89,7 +85,7 @@ sub do_build {
 
     # Main config (gets passed around...)
     my %config = (
-        TT_CONFIG => \%tt_config,
+        TT_CONFIG => \my %tt_config,
         TT_DIR =>
           realpath( $manifest->val( "build", "templates_dir" ) // "templates" ),
         SRC => $manifest->val( "build", "src" )
@@ -127,7 +123,7 @@ sub do_build {
     mkdir( $config{DEST} ) unless -e $config{DEST};
 
     system "rm", "-rf", $config{DEST};
-    @collections = split /,/, $config{COLLECTIONS};
+    my @collections = split /,/, $config{COLLECTIONS};
     my %collections = ();
     for my $dir (@collections) {
 
@@ -157,8 +153,8 @@ sub do_build {
     # rsync is annoying...
     # easy to exclude things using a file, however.
     open my $exclude_fh, ">", "exclude.txt";
-    @excludes = split /,/, $config{EXCLUDE};
-    for $line (@excludes) {
+    my @excludes = split /,/, $config{EXCLUDE};
+    for my $line (@excludes) {
         say $exclude_fh "$line";
     }
 
@@ -207,9 +203,8 @@ sub handle_yaml {
     my %config = @_;
     my $yaml;
     my $markdown = $_;
-    open $MD, $markdown;
+    open my $MD, $markdown;
 
-    # flush that shit...
     undef $/;
     my $data = <$MD>;
     if ( $data =~ /---(.+)---/s ) {
@@ -225,7 +220,7 @@ sub write_html {
     my $template = Template->new( $config{TT_CONFIG} );
     my @body;
 
-    open $MD, $_;
+    open my $MD, $_;
     while (<$MD>) {
 
         # FIXME:
@@ -274,7 +269,7 @@ sub server {
 
     while ( !$quit ) {
 
-        next unless $connection = $listen_socket->accept;
+        next unless my $connection = $listen_socket->accept;
 
         defined( my $child = fork() ) or die "Can't fork: $!";
 
