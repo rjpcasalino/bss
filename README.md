@@ -43,14 +43,10 @@ Ensure the `BSS_DOCROOT` ENV var is set.
 An example:
 
 ```
-$ BSS_DOCROOT=/path/to/your/_site bss build --server --watch
+$ BSS_DOCROOT=/path/to/your/_site bss build --server
 ```
 
-## FIXME (helpme) (todo)
-
+## FIXME
 - [] Handle removing YAML block correctly
 - [] So that we can actually write OG daringfireball md
-
-### Installing
-
-I've been using [fatpack](https://metacpan.org/pod/App::FatPacker). This won't work with XS modules. So, this also needs to be fixed.
+- [] Markdown parser might be garbage 
