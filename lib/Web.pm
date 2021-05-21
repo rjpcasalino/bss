@@ -4,8 +4,6 @@
 
 package Web;
 
-use v5.10;
-
 use vars '@ISA', '@EXPORT';
 require Exporter;
 
@@ -64,7 +62,7 @@ sub lookup_file {
 
 sub redirect {
 	my ($c, $url) = @_;
-	my $hots = $c->sockhost;
+	my $host = $c->sockhost;
 	my $port = $c->sockport;
 	my $moved_to = "http://$host:$port$url";
 	print $c "HTTP/1.0 301 Moved permanently$CRLF";

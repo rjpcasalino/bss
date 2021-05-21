@@ -17,21 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-=head1 NAME
-
-boring static site generator
-
-=head1 SYNOPSIS
-
-bss build [options]
-
-     Options:
-       --help     	 display this help message
-       --server		 serves config DEST
-       --verbose     	 gets talkative
-=cut
-
-use v5.32;
+use v5.30;
 
 use autodie;
 use Config::IniFiles;
@@ -44,7 +30,6 @@ use FindBin qw($Bin);
 use lib "$Bin/lib";
 use Getopt::Long qw(GetOptions);
 use IO::File;
-use Log::Log4perl::Config::Watch;
 use POSIX qw(setsid strftime);
 use Pod::Usage qw(pod2usage);
 use Text::Markdown qw(markdown);
@@ -112,13 +97,13 @@ sub do_build {
     $config{TT_CONFIG}->{ENCODING}     = $config{ENCODING};
 
     say qq{
-		SRC: $config{SRC}
-		DEST: $config{DEST}
-		Excluding: $config{EXCLUDE}
-		Encoding: $config{ENCODING}
-		Server -
-		 PORT:$config{PORT}
-	 } if $opts{verbose};
+	SRC: $config{SRC}
+	DEST: $config{DEST}
+	Excluding: $config{EXCLUDE}
+	Encoding: $config{ENCODING}
+	Server -
+	 PORT:$config{PORT}
+    } if $opts{verbose};
 
     mkdir( $config{DEST} ) unless -e $config{DEST};
 
@@ -262,7 +247,7 @@ sub server {
 
     my $listen_socket = IO::Socket::INET->new(
         LocalPort => $config{PORT},
-        Listen    => SOMAXCONN,
+        Listen    => "SOMAXCONN",
         Reuse     => 1
     ) or die "Can't create listen socket: $!";
     say "Started local dev server on $config{PORT}!";
@@ -281,3 +266,16 @@ sub server {
         $connection->close;
     }
 }
+=head1 NAME
+
+boring static site generator
+
+=head1 SYNOPSIS
+
+bss build [options]
+
+     Options:
+       --help     display this help message
+       --server   serves config DEST
+       --verbose  gets talkative
+=cut

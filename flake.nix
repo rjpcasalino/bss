@@ -1,21 +1,25 @@
 {
   description = "A flake for building bss";
 
-  inputs.nixpkgs.url = github:NixOS/nixpkgs/nixos-20.03;
+  inputs.nixpkgs.url = github:NixOS/nixpkgs/af0a54285ed4ff131f205517aeafb94a9a5898cb;
 
   outputs = { self, nixpkgs }: {
-  
-    defaultPackage.x86_64-linux =
-      with import nixpkgs { system = "x86_64-linux"; };
-      stdenv.mkDerivation {
-        name = "bss";
-        src = self;
-        buildInputs = [ perl ];
-        preInstall = ''
-         echo -n "$src"
-        '';
-        installPhase = "mkdir -p $out/bin; cp bss.pl $out/bin/bss";
-      };
-
+    defaultPackage.x86_64-darwin =
+    with import nixpkgs { system = "x86_64-darwin"; };
+      buildPerlPackage {
+      pname = "bss";
+      version = "0.1";
+      src = self;
+      propagatedBuildInputs = [
+       perlPackages.TemplateToolkit
+       perlPackages.ModuleInstall
+       perlPackages.ConfigIniFiles
+       perlPackages.YAML
+       perlPackages.TextMarkdown
+      ];
+      buildInputs = [ 
+       rsync
+      ];
+    };
   };
 }

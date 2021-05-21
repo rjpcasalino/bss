@@ -9,8 +9,6 @@ pkgs.mkShell {
     pkgs.perlPackages.TextMarkdown 
     pkgs.perlPackages.TemplateToolkit 
     pkgs.perlPackages.YAML
-    pkgs.perlPackages.AppFatPacker
-    pkgs.perlPackages.LogLog4perl
     pkgs.rsync
   ];
 }
