@@ -47,6 +47,7 @@ $ BSS_DOCROOT=/path/to/your/_site bss build --server
 ```
 
 ## FIXME
+- [] rsync: --info=NONE: unknown option on Darwin
 - [] Handle removing YAML block correctly
 - [] So that we can actually write OG daringfireball md
 - [] Markdown parser might be garbage 

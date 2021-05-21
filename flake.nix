@@ -23,7 +23,7 @@
          rsync
        ] ++ lib.optional stdenv.isDarwin shortenPerlShebang;
         postInstall = lib.optional stdenv.isDarwin ''
-         shortenPerlShebang $out/lib/perl5/site_perl/5.32.1/bss.pl
+          shortenPerlShebang $out/lib/perl5/site_perl/${perl.version}/bss.pl
         '';
       };
     in rec {
