@@ -22,7 +22,7 @@
         buildInputs = [ 
          rsync
        ] ++ lib.optional stdenv.isDarwin shortenPerlShebang;
-        postInstall = stdenv.lib.optional stdenv.isDarwin ''
+        postInstall = lib.optional stdenv.isDarwin ''
          shortenPerlShebang $out/lib/perl5/site_perl/5.32.1/bss.pl
         '';
       };
