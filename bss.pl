@@ -278,4 +278,14 @@ bss build [options]
        --help     display this help message
        --server   serves config DEST
        --verbose  gets talkative
+
+=head1 DESCRIPTION
+
+bss is a boring static site generator.
+There isn't much to it. As such, beware!
+
+=head1 LICENSE
+
+This is released under the Artistic
+License. See L<perlartistic>.
 =cut
