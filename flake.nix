@@ -23,11 +23,12 @@
         buildInputs = [
          makeWrapper
        ] ++ lib.optionals stdenv.isDarwin [ shortenPerlShebang ];
-        postInstall = ''
-          # avoid system rsync
-          wrapProgram $out/lib/perl5/site_perl/${perl.version}/bss.pl --prefix PATH : ${lib.makeBinPath[ rsync ]}
-        '' + lib.optionalString stdenv.isDarwin ''
+        postInstall = if stdenv.isDarwin then ''
           shortenPerlShebang $out/lib/perl5/site_perl/${perl.version}/bss.pl
+          wrapProgram $out/lib/perl5/site_perl/${perl.version}/bss.pl --prefix PATH : ${lib.makeBinPath[ rsync ]}
+        '' else ''
+          # FIXME avoid system rsync
+          wrapProgram $out/lib/perl5/site_perl/${perl.version}/bss.pl --prefix PATH : ${lib.makeBinPath[ rsync ]}
         '';
       };
     in rec {
