@@ -30,7 +30,7 @@ Pages begin (as in Jekyll) with a YAML "front matter" block:
 	---
 	[% footer = 'partials/footer.tt' %]
 
-		A perfect day for banana fish wherein Seymour ends his own life...
+		A Perfect Day for Bananafish wherein Seymour ends his own life...
 
 	[% INCLUDE $footer %]
 	```
