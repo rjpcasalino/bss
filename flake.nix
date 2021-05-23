@@ -4,7 +4,7 @@
   inputs.nixpkgs.url = github:NixOS/nixpkgs/af0a54285ed4ff131f205517aeafb94a9a5898cb;
   inputs.flake-utils.url = "github:numtide/flake-utils";
 
-  outputs = { self, nixpkgs, flake-utils }: 
+  outputs = { self, nixpkgs, flake-utils }:
   flake-utils.lib.eachDefaultSystem (system:
     with nixpkgs.legacyPackages.${system};
     let bss = 
@@ -21,12 +21,13 @@
          FilesysNotifySimple
         ];
         buildInputs = [
-         # use our rsync
          makeWrapper
        ] ++ lib.optionals stdenv.isDarwin [ shortenPerlShebang ];
-        postInstall = lib.optionals stdenv.isDarwin ''
-          shortenPerlShebang $out/lib/perl5/site_perl/${perl.version}/bss.pl
+        postInstall = ''
+          # avoid system rsync
           wrapProgram $out/lib/perl5/site_perl/${perl.version}/bss.pl --prefix PATH : ${lib.makeBinPath[ rsync ]}
+        '' + lib.optionalString stdenv.isDarwin ''
+          shortenPerlShebang $out/lib/perl5/site_perl/${perl.version}/bss.pl
         '';
       };
     in rec {
