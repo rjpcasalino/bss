@@ -28,7 +28,7 @@
           wrapProgram $out/lib/perl5/site_perl/${perl.version}/bss.pl --prefix PATH : ${lib.makeBinPath[ rsync ]}
         '';
       };
-    in rec {
+    in {
       defaultPackage = bss;
       }
   );
