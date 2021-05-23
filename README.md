@@ -6,9 +6,8 @@ A boring (and simple...) static site generator written in Perl with a little hel
 
 ## Getting Started
 
-	bss reads manifest.ini for its configuration options:
+bss reads manifest.ini for its configuration options:
 	
-        ```
 	[build]
 	src=/the/path/to/your/site/src/
 	dest=/home/you/websites/_site/
@@ -18,11 +17,9 @@ A boring (and simple...) static site generator written in Perl with a little hel
 	encoding=UTF-8
 	[server]
 	port=8090
-	```
 
 Pages begin (as in Jekyll) with a YAML "front matter" block:  
 
-	```
 	---
 	title: Nine Stories
 	layout: default 
@@ -33,7 +30,6 @@ Pages begin (as in Jekyll) with a YAML "front matter" block:
 		A Perfect Day for Bananafish wherein Seymour ends his own life...
 
 	[% INCLUDE $footer %]
-	```
 
 Template file types can be any of: `.tmpl, .template, .html, .tt, .tt2`.
 
