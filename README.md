@@ -2,13 +2,13 @@
 
 # bss - boring static site generator
 
-A dead simple static site generator written in Perl with a little help from rsync.
+A boring (and simple...) static site generator written in Perl with a little help from rsync.
 
 ## Getting Started
 
 	bss reads manifest.ini for its configuration options:
-
-	```
+	
+        ```
 	[build]
 	src=/the/path/to/your/site/src/
 	dest=/home/you/websites/_site/
@@ -18,10 +18,9 @@ A dead simple static site generator written in Perl with a little help from rsyn
 	encoding=UTF-8
 	[server]
 	port=8090
-
 	```
 
-	Pages begin (as in Jekyll) with a YAML "front matter" block:  
+Pages begin (as in Jekyll) with a YAML "front matter" block:  
 
 	```
 	---
@@ -31,11 +30,12 @@ A dead simple static site generator written in Perl with a little help from rsyn
 	---
 	[% footer = 'partials/footer.tt' %]
 
-		foot clan
+		A perfect day for banana fish wherein Seymour ends his own life...
+
 	[% INCLUDE $footer %]
 	```
 
-	Template files can use any of the following file exts: `.tmpl, .template, .html, .tt, .tt2`.
+Template file types can be any of: `.tmpl, .template, .html, .tt, .tt2`.
 
 A simple web server is included but one would be wise in using it only for local development purposes.
 Ensure the `BSS_DOCROOT` ENV var is set.
@@ -47,7 +47,8 @@ $ BSS_DOCROOT=/path/to/your/_site bss build --server
 ```
 
 ## FIXME
-- [] rsync: --info=NONE: unknown option on Darwin
+- [] BSS_DOCROOT should set to whatever is in config
 - [] Handle removing YAML block correctly
 - [] So that we can actually write OG daringfireball md
 - [] Markdown parser might be garbage 
+- [] short flags so we can do -v and -s for verbose and server
