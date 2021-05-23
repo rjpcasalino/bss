@@ -12,18 +12,21 @@
         pname = "bss";
         version = "0.1";
         src = self;
-        propagatedBuildInputs = [
-         perlPackages.TemplateToolkit
-         perlPackages.ModuleInstall
-         perlPackages.ConfigIniFiles
-         perlPackages.YAML
-         perlPackages.TextMarkdown
+        propagatedBuildInputs = with perlPackages; [
+         TemplateToolkit
+         ModuleInstall
+         ConfigIniFiles
+         YAML
+         TextMarkdown
+         FilesysNotifySimple
         ];
-        buildInputs = [ 
-         rsync
-       ] ++ lib.optional stdenv.isDarwin shortenPerlShebang;
-        postInstall = lib.optional stdenv.isDarwin ''
+        buildInputs = [
+         # use our rsync
+         makeWrapper
+       ] ++ lib.optionals stdenv.isDarwin [ shortenPerlShebang ];
+        postInstall = lib.optionals stdenv.isDarwin ''
           shortenPerlShebang $out/lib/perl5/site_perl/${perl.version}/bss.pl
+          wrapProgram $out/lib/perl5/site_perl/${perl.version}/bss.pl --prefix PATH : ${lib.makeBinPath[ rsync ]}
         '';
       };
     in rec {
@@ -31,3 +34,4 @@
       }
   );
 }
+
