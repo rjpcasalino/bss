@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use v5.30;
+use v5.32;
 
 use autodie;
 use Config::IniFiles;
@@ -49,7 +49,7 @@ my $quit     = 0;
 $SIG{CHLD} = sub {
     while ( waitpid( -1, "WNOHANG" ) > 0 ) { }
 };
-$SIG{INT} = sub { $quit++ };
+$SIG{INT} = sub { say "Goodbye!"; sleep 1; $quit++ };
 
 GetOptions(
     \%opts, qw(
@@ -119,7 +119,7 @@ sub do_build {
                 next if $_ eq "." or $_ eq "..";
 
                 # FIXME: only picks up .md ext
-                $_ =~ s/\.md$/\.html/;
+                $_ =~ s/\.[mM](ark)?[dD](own)?$/\.html/;
                 push @{ $collections{$dir} }, $_;
             },
             File::Spec->catfile( $config{SRC}, $dir )
@@ -175,7 +175,7 @@ sub build {
             $File::Find::prune = 1;
         }
     }
-    elsif ( $_ =~ /.md$/ ) {
+    elsif ( $_ =~ /.[mM](ark)?[dD](own)?$/ ) {
         handle_yaml(%config);
     }
     elsif ( $_ =~ /.png|.jpg|.jpeg|.gif|.svg$/i ) {
@@ -200,7 +200,7 @@ sub handle_yaml {
 
 sub write_html {
     my ( $html, $yaml, %config ) = @_;
-    $html =~ s/\.md$/\.html/;
+    $html =~ s/\.[mM](ark)?[dD](own)?$/\.html/;
 
     my $template = Template->new( $config{TT_CONFIG} );
     my @body;
