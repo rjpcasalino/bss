@@ -40,10 +40,10 @@ An example:
 
 ```
 $ BSS_DOCROOT=/path/to/your/_site bss build --server
+# otherwise defaults to "_site"
 ```
 
 ## FIXME
-- [] BSS_DOCROOT should set to whatever is in config
 - [] Handle removing YAML block correctly
 - [] So that we can actually write OG daringfireball md
 - [] Markdown parser might be garbage 
