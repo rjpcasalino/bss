@@ -11,7 +11,7 @@ require Exporter;
 @EXPORT = qw(handle_connection docroot);
 
 # hacky but whatever
-my $DOCUMENT_ROOT = defined($ENV{'BSS_DOCROOT'}) ? $ENV{'BSS_DOCROOT'} : "_site";
+my $DOCUMENT_ROOT = defined($ENV{'BSS_DOCROOT'}) ? $ENV{'BSS_DOCROOT'} : '_site';
 my $CRLF = "\015\012";
 
 sub handle_connection {
@@ -114,4 +114,4 @@ sub docroot {
 	return $DOCUMENT_ROOT;
 }
 
-1; # perl programs end this way :-) 
+1; # perl programs end this way :-)
