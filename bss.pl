@@ -49,7 +49,7 @@ my $quit     = 0;
 $SIG{CHLD} = sub {
     while ( waitpid( -1, "WNOHANG" ) > 0 ) { }
 };
-$SIG{INT} = sub { say "Goodbye!"; sleep 1; $quit++ };
+$SIG{INT} = sub { say "\nGoodbye!"; sleep 1; $quit++ };
 
 GetOptions(
     \%opts, qw(
