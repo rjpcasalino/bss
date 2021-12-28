@@ -43,6 +43,11 @@ $ BSS_DOCROOT=/path/to/your/_site bss build --server
 # otherwise defaults to "_site"
 ```
 
+#### build with nix
+```
+$ nix build --extra-experimental-features nix-command --extra-experimental-features flakes
+```
+
 ## FIXME
 - [] Handle removing YAML block correctly
 - [] So that we can actually write OG daringfireball md
