@@ -18,6 +18,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use v5.32;
+use warnings;
 
 use autodie;
 use Config::IniFiles;
@@ -188,7 +189,7 @@ sub handle_yaml {
     my %config = @_;
     my $yaml;
     my $markdown = $_;
-    open my $MD, $markdown;
+    open(my $MD, $markdown);
 
     undef $/;
     my $data = <$MD>;
@@ -205,7 +206,7 @@ sub write_html {
     my $template = Template->new( $config{TT_CONFIG} );
     my @body;
 
-    open my $MD, $_;
+    open(my $MD, $_);
     while (<$MD>) {
 
         # FIXME:
