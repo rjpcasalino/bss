@@ -24,8 +24,10 @@
          makeWrapper
        ] ++ lib.optionals stdenv.isDarwin [ shortenPerlShebang ];
         postInstall = ''
+          mkdir -p $out/bin
           ${if stdenv.isDarwin then "shortenPerlShebang $out/lib/perl5/site_perl/${perl.version}/bss.pl" else ""}
           wrapProgram $out/lib/perl5/site_perl/${perl.version}/bss.pl --prefix PATH : ${lib.makeBinPath[ rsync ]}
+          ln -fs $out/lib/perl5/site_perl/${perl.version}/bss.pl $out/bin/bss
         '';
       };
     in {
