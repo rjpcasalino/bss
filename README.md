@@ -46,6 +46,8 @@ $ BSS_DOCROOT=/path/to/your/_site bss build --server
 #### build with nix
 ```
 $ nix build --extra-experimental-features nix-command --extra-experimental-features flakes
+# this will place bss in your nix profile so it's "installed" in a sense. This is the replacement for nix-env...
+$ nix profile --extra-experimental-features nix-command --extra-experimental-features flakes install
 ```
 
 ## FIXME
