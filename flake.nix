@@ -1,7 +1,7 @@
 {
   description = "A flake for building bss";
 
-  inputs.nixpkgs.url = github:NixOS/nixpkgs/af0a54285ed4ff131f205517aeafb94a9a5898cb;
+  inputs.nixpkgs.url = github:NixOS/nixpkgs/nixos-unstable-small;
   inputs.flake-utils.url = "github:numtide/flake-utils";
 
   outputs = { self, nixpkgs, flake-utils }:
