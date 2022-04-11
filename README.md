@@ -25,13 +25,17 @@ Pages begin (as in Jekyll) with a YAML "front matter" block:
 	layout: default 
         author: J.D. Salinger 
 	---
-	[% footer = 'partials/footer.tt' %]
-
-		A Perfect Day for Bananafish wherein Seymour ends his own life...
-
-	[% INCLUDE $footer %]
+		A Perfect Day for Bananafish wherein Seymour ends his own life.
 
 Template file types can be any of: `.tmpl, .template, .html, .tt, .tt2`.
+
+See: http://www.template-toolkit.org/index.html
+
+One can define partials and such for use in templates or layouts or what have you: 
+```
+[% footer = 'partials/footer.tt' %]
+[% INCLUDE $footer %]
+```
 
 A simple web server is included but one would be wise in using it only for local development purposes.
 Ensure the `BSS_DOCROOT` ENV var is set.
