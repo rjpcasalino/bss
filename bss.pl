@@ -3,9 +3,10 @@
 # bss - boring static site generator
 # Copyright (C) 2021,2022  Ryan Joseph Patrick Casalino
 #
-# This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
+# This program is free software; you can redistribute it and/or modify it under
+# the same terms as Perl itself.
 
-# See http://www.perl.com/perl/misc/Artistic.html use
+# See http://www.perl.com/perl/misc/Artistic.html
 
 use v5.32;
 use warnings;
