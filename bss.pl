@@ -71,7 +71,6 @@ sub do_build {
 
     # Main config (gets passed around...)
     my %config = (
-        TT_CONFIG => \my %tt_config,
         TT_DIR =>
           realpath( $manifest->val( "build", "templates_dir" ) // "templates" ),
         SRC => $manifest->val( "build", "src" )
@@ -80,6 +79,7 @@ sub do_build {
         ENCODING    => $manifest->val( "build", "encoding" )    // "UTF-8",
         COLLECTIONS => $manifest->val( "build", "collections" ) // undef,
         EXCLUDE => $manifest->val( "build",  "exclude" ) // "*.md, templates",
+        EVAL_PERL => $manifest->val( "build",  "evaluate perl" ) // 0,
         PORT    => $manifest->val( "server", "port" )    // "9000",
         HOST    => $manifest->val( "server", "host" )    // "localhost"
     );
@@ -87,21 +87,25 @@ sub do_build {
     # Template Toolkit #
     my $tt_config = {
         INCLUDE_PATH => undef,
-        INTERPOLATE  => 1,
-        EVAL_PERL    => 1,
-        RELATIVE     => 1,
+        INTERPOLATE  => undef,
+        EVAL_PERL    => undef,
+        RELATIVE     => undef,
         ENCODING     => undef
     };
 
     # set template toolkit options
     $config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
     $config{TT_CONFIG}->{ENCODING}     = $config{ENCODING};
+    $config{TT_CONFIG}->{EVAL_PERL}    = $config{EVAL_PERL};
+
+    my $debug_tt_config = Dumper($config{TT_CONFIG});
 
     say qq{
 	SRC: $config{SRC}
 	DEST: $config{DEST}
 	Excluding: $config{EXCLUDE}
 	Encoding: $config{ENCODING}
+	Template Toolkit Config: $debug_tt_config
 	Server -
 	 PORT:$config{PORT}
     } if $opts{verbose};
