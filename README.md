@@ -15,6 +15,7 @@ bss reads manifest.ini for its configuration options:
 	collections=posts
 	exclude=*.md,*.markdown,templates,junk
 	encoding=UTF-8
+	evaluate perl=0 # use perl false boolen value
 	[server]
 	port=8090
 
@@ -31,7 +32,7 @@ Template file types can be any of: `.tmpl, .template, .html, .tt, .tt2`.
 
 See: http://www.template-toolkit.org/index.html
 
-One can define partials and such for use in templates or layouts or what have you: 
+One can define partials and such for use in templates or layouts or what have you:
 ```
 [% footer = 'partials/footer.tt' %]
 [% INCLUDE $footer %]
@@ -56,6 +57,4 @@ $ nix profile --extra-experimental-features nix-command --extra-experimental-fea
 
 ## FIXME
 - [] Handle removing YAML block correctly
-- [] So that we can actually write OG daringfireball md
-- [] Markdown parser might be garbage 
 - [] short flags so we can do -v and -s for verbose and server
