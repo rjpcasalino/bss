@@ -76,13 +76,15 @@ sub do_build {
     );
 
     # Template Toolkit #
+    # FIXME
+    # tt config is handled poorly
+    # this needs to be embedded in the overall config
     my $tt_config = {
         INCLUDE_PATH => undef,
-        INTERPOLATE  => undef,
-        EVAL_PERL    => undef,
-        RELATIVE     => undef,
         ENCODING     => undef,
-        PLUGIN_BASE  => undef
+        EVAL_PERL    => undef,
+        ENCODING     => undef,
+        PLUGINS      => undef
     };
 
     # set template toolkit options
