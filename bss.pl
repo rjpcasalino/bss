@@ -89,7 +89,7 @@ sub do_build {
     $config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
     $config{TT_CONFIG}->{ENCODING}     = $config{ENCODING};
     $config{TT_CONFIG}->{EVAL_PERL}    = $config{EVAL_PERL};
-    $config{TT_CONFIG}->{PLUGINS}      = { Markdown => 'Template::Plugin::Markdown' };
+    $config{TT_CONFIG}->{PLUGINS}      = { Markdown => 'Markdown' };
 
     my $debug_tt_config = Dumper($config{TT_CONFIG});
 

@@ -1,6 +1,6 @@
 # TODO:
 # give credit to OG author
-package Template::Plugin::Markdown;
+package Markdown;
 use strict;
 use base qw (Template::Plugin::Filter);
 use Text::Markdown;
