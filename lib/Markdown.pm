@@ -1,4 +1,5 @@
-#$Id: Markdown.pm,v 1.3 2005/11/12 03:28:09 naoya Exp $
+# TODO:
+# give credit to OG author
 package Template::Plugin::Markdown;
 use strict;
 use base qw (Template::Plugin::Filter);

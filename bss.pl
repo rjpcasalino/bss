@@ -81,13 +81,15 @@ sub do_build {
         INTERPOLATE  => undef,
         EVAL_PERL    => undef,
         RELATIVE     => undef,
-        ENCODING     => undef
+        ENCODING     => undef,
+        PLUGIN_BASE  => undef
     };
 
     # set template toolkit options
     $config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
     $config{TT_CONFIG}->{ENCODING}     = $config{ENCODING};
     $config{TT_CONFIG}->{EVAL_PERL}    = $config{EVAL_PERL};
+    $config{TT_CONFIG}->{PLUGINS}      = { Markdown => 'Template::Plugin::Markdown' };
 
     my $debug_tt_config = Dumper($config{TT_CONFIG});
 
