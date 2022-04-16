@@ -219,13 +219,10 @@ sub write_html {
     }
     open my $HTML, ">", $html;
 
-    my $site_modified = strftime '%c', localtime();
-
     my $vars = {
         title         => $yaml->{title},
         body          => \@body,
         collections   => $config{COLLECTIONS},
-        site_modified => $site_modified,
     };
 
     # select layout (template)
@@ -237,6 +234,10 @@ sub write_html {
         },
         $config{TT_DIR}
     );
+    # FIXME
+    # seems slow; look into speeding up
+    # takes 13 ~ seconds on 900MHz Intel
+    # look into image compression
     $template->process( $yaml->{layout}, $vars, $HTML )
       or die $template->error();
     say "$yaml->{title} processed." if $opts{verbose};
