@@ -10,6 +10,10 @@
 
 use v5.32;
 use warnings;
+# this code should be fixed but duct tape works also!
+# https://stackoverflow.com/questions/1480066/in-perl-how-can-i-concisely-check-if-a-variable-is-defined-and-contains-a-non
+no warnings "exiting";
+no warnings 'uninitialized';
 
 use autodie;
 use Config::IniFiles;
@@ -38,9 +42,11 @@ my %opts     = ( server => '', verbose => '', help => '');
 my $manifest = "manifest.ini";
 my $quit     = 0;
 
-$SIG{CHLD} = sub {
-    while ( waitpid( -1, "WNOHANG" ) > 0 ) { }
-};
+# FIXME
+#$SIG{CHLD} = sub {
+#    while ( waitpid( -1, "WNOHANG" ) > 0 ) { }
+#};
+
 $SIG{INT} = sub { say "\nGoodbye!"; sleep 1; $quit++ };
 
 GetOptions(
@@ -116,8 +122,8 @@ sub do_build {
         push( @{ $collections{$dir} }, () );
         find(
             sub {
+	    	# see no warnings "exiting";
                 next if $_ eq "." or $_ eq "..";
-
                 # FIXME: only picks up .md ext
                 $_ =~ s/\.[mM](ark)?[dD](own)?$/\.html/;
                 push @{ $collections{$dir} }, $_;
@@ -179,7 +185,6 @@ sub build {
         handle_yaml(%config);
     }
     elsif ( $_ =~ /.png|.jpg|.jpeg|.gif|.svg$/i ) {
-
         # TODO
     }
 }
@@ -220,19 +225,20 @@ sub write_html {
     open my $HTML, ">", $html;
 
     my $vars = {
-        title         => $yaml->{title},
+	title         => $yaml->{title},
         body          => \@body,
         collections   => $config{COLLECTIONS},
     };
 
     # select layout (template)
     find(
-        sub {
-            if ( $_ =~ /$yaml->{layout}(.tmpl|.template|.html|.tt|.tt2)$/ ) {
-                $yaml->{layout} = $_;
-            }
-        },
-        $config{TT_DIR}
+	sub {
+	    # see no warnings 'uninitialized';
+	    if ( $_ =~ /$yaml->{layout}(.tmpl|.template|.html|.tt|.tt2)$/ ) {
+		$yaml->{layout} = $_;
+	    }
+	},
+	$config{TT_DIR}
     );
     # FIXME
     # seems slow; look into speeding up
