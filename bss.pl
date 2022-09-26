@@ -13,7 +13,7 @@ use warnings;
 # this code should be fixed but duct tape works also!
 # https://stackoverflow.com/questions/1480066/in-perl-how-can-i-concisely-check-if-a-variable-is-defined-and-contains-a-non
 no warnings "exiting";
-no warnings 'uninitialized';
+no warnings "uninitialized";
 
 use autodie;
 use Config::IniFiles;
@@ -43,6 +43,7 @@ my $manifest = "manifest.ini";
 my $quit     = 0;
 
 # FIXME
+# what was I doing here?
 #$SIG{CHLD} = sub {
 #    while ( waitpid( -1, "WNOHANG" ) > 0 ) { }
 #};
@@ -122,7 +123,7 @@ sub do_build {
         push( @{ $collections{$dir} }, () );
         find(
             sub {
-	    	# see no warnings "exiting";
+                # see no warnings "exiting";
                 next if $_ eq "." or $_ eq "..";
                 # FIXME: only picks up .md ext
                 $_ =~ s/\.[mM](ark)?[dD](own)?$/\.html/;
@@ -225,7 +226,7 @@ sub write_html {
     open my $HTML, ">", $html;
 
     my $vars = {
-	title         => $yaml->{title},
+        title         => $yaml->{title},
         body          => \@body,
         collections   => $config{COLLECTIONS},
     };
