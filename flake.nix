@@ -13,6 +13,7 @@
         version = "0.1";
         src = self;
         propagatedBuildInputs = with perlPackages; [
+         DateTime
          TemplateToolkit
          ModuleInstall
          ConfigIniFiles
