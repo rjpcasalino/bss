@@ -97,17 +97,6 @@ sub do_build {
         HOST    => $manifest->val( "server", "host" )    // "localhost"
     );
 
-    # Template Toolkit #
-    # FIXME
-    # tt config is handled poorly
-    # this needs to be embedded in the overall config
-    my $tt_config = {
-        INCLUDE_PATH => undef,
-        ENCODING     => undef,
-        EVAL_PERL    => undef,
-        ENCODING     => undef,
-        PLUGINS      => undef
-    };
 
     # set template toolkit options
     $config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
