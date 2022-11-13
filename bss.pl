@@ -18,14 +18,14 @@ no warnings "uninitialized";
 # FIXME
 # this was very strange but Template Toolkit is doing something strange
 # and I was getting these warnings:
-# each on anonymous hash will always start from the beginning at /nix/store/0iridcjpmjzd8hnwz648vpb8nd4g907f-perl5.36.0-Template-Toolkit-3.009/lib/perl5/site_perl/5.36.0/x86_64-linux-thread-multi/Template/Document.pm line 75.
-# each on anonymous hash will always start from the beginning at /nix/store/0iridcjpmjzd8hnwz648vpb8nd4g907f-perl5.36.0-Template-Toolkit-3.009/lib/perl5/site_perl/5.36.0/x86_64-linux-thread-multi/Template/Provider.pm line 376.
-# each on anonymous hash will always start from the beginning at /nix/store/0iridcjpmjzd8hnwz648vpb8nd4g907f-perl5.36.0-Template-Toolkit-3.009/lib/perl5/site_perl/5.36.0/x86_64-linux-thread-multi/Template/Provider.pm line 875.
-# each on anonymous hash will always start from the beginning at /nix/store/0iridcjpmjzd8hnwz648vpb8nd4g907f-perl5.36.0-Template-Toolkit-3.009/lib/perl5/site_perl/5.36.0/x86_64-linux-thread-multi/Template/Provider.pm line 894.
+# each on anonymous hash will always start from the beginning at /nix/store/longhash-perl5.36.0-Template-Toolkit-3.009/lib/perl5/site_perl/5.36.0/x86_64-linux-thread-multi/Template/Document.pm line 75.
+# each on anonymous hash will always start from the beginning at /nix/store/longhash-perl5.36.0-Template-Toolkit-3.009/lib/perl5/site_perl/5.36.0/x86_64-linux-thread-multi/Template/Provider.pm line 376.
+# each on anonymous hash will always start from the beginning at /nix/store/longhash-perl5.36.0-Template-Toolkit-3.009/lib/perl5/site_perl/5.36.0/x86_64-linux-thread-multi/Template/Provider.pm line 875.
+# each on anonymous hash will always start from the beginning at /nix/store/longhash-perl5.36.0-Template-Toolkit-3.009/lib/perl5/site_perl/5.36.0/x86_64-linux-thread-multi/Template/Provider.pm line 894.
 # this strange syntax below is cobbled together from answers on SO
 # see: https://stackoverflow.com/questions/27556539/any-way-to-turn-off-warning-generated-in-use-module-statement-in-perl
 # and: https://stackoverflow.com/questions/19490351/how-can-i-suppress-warnings-from-a-perl-function
-# not that changing this to use over require and the warning will reappear
+# note that changing "require" to "use" will make the warning reappear
 BEGIN {
     local $SIG{__WARN__} = sub {};
     require Template;
