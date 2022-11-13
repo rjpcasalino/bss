@@ -7,8 +7,8 @@
   outputs = { self, nixpkgs, flake-utils }:
   flake-utils.lib.eachDefaultSystem (system:
     with nixpkgs.legacyPackages.${system};
-    let bss = 
-        buildPerlPackage {
+    let bss =
+        perlPackages.buildPerlPackage {
         pname = "bss";
         version = "0.1";
         src = self;
