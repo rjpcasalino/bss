@@ -15,7 +15,7 @@ bss reads manifest.ini for its configuration options:
 	collections=posts
 	exclude=*.md,*.markdown,templates,junk
 	encoding=UTF-8
-	evaluate perl=0 # use perl false boolen value
+	evaluate perl=0 # use perl false boolen value; this only works on template files
 	[server]
 	port=8090
 
@@ -51,8 +51,15 @@ $ BSS_DOCROOT=/path/to/your/_site bss build --server
 #### build with nix
 ```
 $ nix build --extra-experimental-features nix-command --extra-experimental-features flakes
-# this will place bss in your nix profile so it's "installed" in a sense. This is the replacement for nix-env...
+
+# this will place bss in your nix profile so it's "installed" in a sense. This is the replacement for nix-env
+
 $ nix profile --extra-experimental-features nix-command --extra-experimental-features flakes install
+
+# or just
+$ nix build
+# and copy the result/bin/bss to run/wrappers/bin
+# this won't survive a reboot.
 ```
 
 ## FIXME
