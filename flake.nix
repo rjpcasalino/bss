@@ -9,7 +9,7 @@
       with nixpkgs.legacyPackages.${system};
       let
         bss =
-          buildPerlPackage {
+          perlPackages.buildPerlPackage {
             pname = "bss";
             version = "0.1";
             src = self;
