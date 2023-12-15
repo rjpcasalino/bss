@@ -33,7 +33,7 @@
           };
       in
       {
-        defaultPackage = bss;
+        packages.default = bss;
       }
     );
 }
