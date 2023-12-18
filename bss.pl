@@ -9,7 +9,9 @@
 # See http://www.perl.com/perl/misc/Artistic.html
 
 use v5.36;
+use strict;
 use warnings;
+use open qw( :std :encoding(UTF-8) );
 # this code should be fixed but duct tape works also!
 # https://stackoverflow.com/questions/1480066/in-perl-how-can-i-concisely-check-if-a-variable-is-defined-and-contains-a-non
 no warnings "exiting";
