@@ -56,6 +56,7 @@ my ($cmd)    = @ARGV;
 my %opts     = ( server => '', verbose => '', help => '');
 my $manifest = "manifest.ini";
 my $quit     = 0;
+my $MD_EXT_RE = qr/\.[mM](ark)?[dD](own)?$/;
 
 $SIG{CHLD} = sub {
     while ( waitpid( -1, POSIX::WNOHANG ) > 0 ) { }
@@ -126,7 +127,7 @@ sub do_build {
             sub {
                 return if $_ eq "." or $_ eq "..";
                 # FIXME: only picks up .md ext
-                (my $name = $_) =~ s/\.[mM](ark)?[dD](own)?$/\.html/;
+                (my $name = $_) =~ s/$MD_EXT_RE/\.html/;
                 push @{ $collections{$dir} }, $name;
             },
             File::Spec->catfile( $config{SRC}, $dir )
@@ -182,7 +183,7 @@ sub build {
             $File::Find::prune = 1;
         }
     }
-    elsif ( $_ =~ /\.[mM](ark)?[dD](own)?$/ ) {
+    elsif ( $_ =~ /$MD_EXT_RE/ ) {
         handle_yaml(%config);
     }
     elsif ( $_ =~ /\.png|\.jpg|\.jpeg|\.gif|\.svg$/i ) {
@@ -210,7 +211,7 @@ sub handle_yaml {
 
 sub write_html {
     my ( $html, $yaml, $body, %config ) = @_;
-    $html =~ s/\.[mM](ark)?[dD](own)?$/\.html/;
+    $html =~ s/$MD_EXT_RE/\.html/;
 
     my $template = Template->new( $config{TT_CONFIG} );
 
