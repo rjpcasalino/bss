@@ -1,4 +1,4 @@
-# Core Web server rounties from:
+# Core Web server routines from:
 # Chapter 15 of "Network Programming with Perl"
 # Copyright Lincoln D. Stein, 2000 
 
@@ -50,14 +50,15 @@ sub lookup_file {
 	$path =~ s/\?.*$//; # ger rid of query
 	$path =~ s/\#.*$//; # get rid of fragment
 	$path .= 'index.html' if $url =~ m!/$!; # get index.html if path ends in /
-	return if $path =~ m!/\.\\./!; # don't allow relative paths (..)
+	return if $path =~ m!/\.\./!; # don't allow relative paths (..)
 	return (undef, 'directory', undef) if -d $path; # oops! a directory
 	my $type = 'text/plain'; # default MIME type
 	$type = 'text/html' if $path =~ /\.html?$/i; # HTML file?
-	$type = 'text/gif' if $path =~ /\.gif?$/i; # gif file?
-	$type = 'text/jpeg' if $path =~ /\.jpe?g$/i; # jpg file?
-	return unless my $length = (stat(_))[7]; # file size
+	$type = 'image/gif' if $path =~ /\.gif$/i; # gif file?
+	$type = 'image/jpeg' if $path =~ /\.jpe?g$/i; # jpg file?
+	return unless my $length = (stat($path))[7]; # file size
 	return unless my $fh = IO::File->new($path, "<"); # try to open file
+	return ($fh, $type, $length);
 }
 
 sub redirect {
@@ -74,7 +75,7 @@ sub redirect {
 </head>
 <body>
 <h1>MOVED</h1>
-<p> The requested document has moved <a href="$moved_to">here</a>.<.p>
+<p> The requested document has moved <a href="$moved_to">here</a>.</p>
 </body>
 </html>
 END
