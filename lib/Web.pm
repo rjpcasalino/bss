@@ -1,18 +1,37 @@
-# Core Web server rounties from:
+# Core Web server routines from:
 # Chapter 15 of "Network Programming with Perl"
 # Copyright Lincoln D. Stein, 2000 
 
 package Web;
 
-use vars '@ISA', '@EXPORT';
-require Exporter;
+use parent 'Exporter';
+our @EXPORT = qw(handle_connection docroot);
 
-@ISA = 'Exporter';
-@EXPORT = qw(handle_connection docroot);
-
-# hacky but whatever
 my $DOCUMENT_ROOT = defined($ENV{'BSS_DOCROOT'}) ? $ENV{'BSS_DOCROOT'} : '_site';
 my $CRLF = "\015\012";
+
+my %MIME_TYPES = (
+	html  => 'text/html',
+	htm   => 'text/html',
+	css   => 'text/css',
+	js    => 'application/javascript',
+	json  => 'application/json',
+	xml   => 'application/xml',
+	gif   => 'image/gif',
+	jpg   => 'image/jpeg',
+	jpeg  => 'image/jpeg',
+	png   => 'image/png',
+	svg   => 'image/svg+xml',
+	ico   => 'image/x-icon',
+	webp  => 'image/webp',
+	woff  => 'font/woff',
+	woff2 => 'font/woff2',
+	ttf   => 'font/ttf',
+	otf   => 'font/otf',
+	eot   => 'application/vnd.ms-fontobject',
+	pdf   => 'application/pdf',
+	txt   => 'text/plain',
+);
 
 sub handle_connection {
 	my $c = shift; #socket
@@ -50,14 +69,13 @@ sub lookup_file {
 	$path =~ s/\?.*$//; # ger rid of query
 	$path =~ s/\#.*$//; # get rid of fragment
 	$path .= 'index.html' if $url =~ m!/$!; # get index.html if path ends in /
-	return if $path =~ m!/\.\\./!; # don't allow relative paths (..)
+	return if $path =~ m!/\.\./!; # don't allow relative paths (..)
 	return (undef, 'directory', undef) if -d $path; # oops! a directory
-	my $type = 'text/plain'; # default MIME type
-	$type = 'text/html' if $path =~ /\.html?$/i; # HTML file?
-	$type = 'text/gif' if $path =~ /\.gif?$/i; # gif file?
-	$type = 'text/jpeg' if $path =~ /\.jpe?g$/i; # jpg file?
-	return unless my $length = (stat(_))[7]; # file size
+	my ($ext) = $path =~ /\.([^.]+)$/;
+	my $type = (defined $ext && $MIME_TYPES{lc $ext}) || 'application/octet-stream';
+	return unless my $length = (stat($path))[7]; # file size
 	return unless my $fh = IO::File->new($path, "<"); # try to open file
+	return ($fh, $type, $length);
 }
 
 sub redirect {
@@ -74,7 +92,7 @@ sub redirect {
 </head>
 <body>
 <h1>MOVED</h1>
-<p> The requested document has moved <a href="$moved_to">here</a>.<.p>
+<p> The requested document has moved <a href="$moved_to">here</a>.</p>
 </body>
 </html>
 END
