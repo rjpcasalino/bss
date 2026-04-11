@@ -131,7 +131,7 @@ sub do_build {
     say "Site created in $config{DEST}!";
 
     if ($opts{server}) {
-        set_dev_mode(catfile($config{DEST}, '__bss_meta.json'));
+        set_dev_mode(catfile($config{DEST}, '__bss_meta.json'), $config{SRC});
         fork_watcher(%config);
         say "Watching $config{SRC} for changes...";
         server(%config);
@@ -302,9 +302,11 @@ sub fork_watcher {
 
     if ( $pid == 0 ) {
         # Child process: watch for file changes and rebuild.
-        # Redirect stdout/stderr to /dev/null so rebuild output
-        # (including rsync) never leaks to the parent terminal or
-        # other terminal windows.
+        # Create a new session so the child is fully detached from the
+        # parent's controlling terminal, then redirect stdout/stderr to
+        # /dev/null so rebuild output (including rsync) never leaks to
+        # the parent terminal or other terminal windows.
+        setsid();
         open STDOUT, '>', '/dev/null' or die "Can't redirect STDOUT: $!";
         open STDERR, '>', '/dev/null' or die "Can't redirect STDERR: $!";
 

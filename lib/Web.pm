@@ -7,10 +7,15 @@ package Web;
 use parent 'Exporter';
 our @EXPORT = qw(handle_connection docroot set_dev_mode);
 
+use IO::Compress::Gzip qw(gzip $GzipError);
+use Cwd qw(abs_path);
+use File::Spec::Functions qw(catfile);
+
 my $DOCUMENT_ROOT = defined($ENV{'BSS_DOCROOT'}) ? $ENV{'BSS_DOCROOT'} : '_site';
 my $CRLF = "\015\012";
 my $DEV_MODE = 0;
 my $META_FILE = '';
+my $SRC_DIR = '';
 
 my %MIME_TYPES = (
 	html  => 'text/html',
@@ -35,31 +40,75 @@ my %MIME_TYPES = (
 	txt   => 'text/plain',
 );
 
+my %COMPRESSIBLE = map { $_ => 1 } qw(
+	text/html text/css application/javascript application/json
+	application/xml image/svg+xml text/plain
+);
+
 sub set_dev_mode {
 	$META_FILE = shift;
+	$SRC_DIR = shift // '';
 	$DEV_MODE = 1;
 }
 
 sub handle_connection {
 	my $c = shift; #socket
-	my ($fh, $type, $length, $url, $method);
 	local $/ = "$CRLF$CRLF"; # set end of line character
 	my $request = <$c>; # read request header
 
 	return invalid_request($c)
-	 unless ($method, $url) = $request =~ m!^(GET|HEAD) (/.*) HTTP/1\.[01]!;
+	 unless my ($method, $url) = $request =~ m!^(GET|HEAD|POST) (/.*) HTTP/1\.[01]!;
 
-	# Dev mode: serve build metadata for live reload polling
-	if ($DEV_MODE && $url eq '/__bss/poll') {
-		return bss_poll($c);
+	# Parse headers for Accept-Encoding and Content-Length
+	my %headers;
+	while ($request =~ /^([^:]+):\s*(.+?)\s*$/mg) {
+		$headers{lc($1)} = $2;
+	}
+	my $accept_gzip = ($headers{'accept-encoding'} // '') =~ /\bgzip\b/;
+
+	# Read POST body
+	my $post_body = '';
+	if ($method eq 'POST') {
+		my $len = int($headers{'content-length'} // 0);
+		if ($len > 0 && $len < 10_000_000) {
+			my $remaining = $len;
+			while ($remaining > 0) {
+				my $bytes_read = read($c, my $chunk, $remaining);
+				last unless $bytes_read;
+				$post_body .= $chunk;
+				$remaining -= $bytes_read;
+			}
+		}
 	}
 
+	# Dev mode API routes
+	if ($DEV_MODE) {
+		return bss_poll($c, $accept_gzip) if $url eq '/__bss/poll';
+		if ($url =~ m!^/__bss/source!) {
+			return bss_source($c, $url, $accept_gzip) if $method eq 'GET';
+		}
+		if ($url =~ m!^/__bss/save!) {
+			return bss_save($c, $url, $post_body) if $method eq 'POST';
+		}
+	}
+
+	return invalid_request($c) unless $method =~ /^(GET|HEAD)$/;
+
+	my ($fh, $type, $length);
 	return not_found($c) unless ($fh, $type, $length) = lookup_file($url);
 	return redirect($c, "$url/") if $type eq 'directory';
 
-	# In dev mode, inject live reload script and stats box into HTML
+	# In dev mode, inject live reload script, stats box, and editor into HTML
 	if ($DEV_MODE && $type eq 'text/html' && $method eq 'GET') {
-		return serve_html_with_reload($c, $fh);
+		return serve_html_with_reload($c, $fh, $url, $accept_gzip);
+	}
+
+	# Serve with gzip compression for compressible text types
+	if ($accept_gzip && $COMPRESSIBLE{$type} && $method eq 'GET') {
+		local $/;
+		my $body = <$fh>;
+		close $fh;
+		return _send_response($c, $type, $body, 1);
 	}
 
 	# print the header
@@ -75,6 +124,31 @@ sub handle_connection {
 		print $c $buffer;
 	}
 	close $fh;
+}
+
+sub _send_response {
+	my ($c, $type, $body, $try_gzip, %extra) = @_;
+	my $encoding = '';
+
+	if ($try_gzip && $COMPRESSIBLE{$type} && length($body) > 256) {
+		my $compressed;
+		if (gzip(\$body => \$compressed)) {
+			$body = $compressed;
+			$encoding = 'gzip';
+		}
+	}
+
+	my $length = length($body);
+	print $c "HTTP/1.0 200 OK$CRLF";
+	print $c "Content-type: $type$CRLF";
+	print $c "Content-length: $length$CRLF";
+	print $c "Content-Encoding: gzip$CRLF" if $encoding;
+	print $c "Vary: Accept-Encoding$CRLF" if $COMPRESSIBLE{$type};
+	for my $h (keys %extra) {
+		print $c "$h: $extra{$h}$CRLF";
+	}
+	print $c $CRLF;
+	print $c $body;
 }
 
 sub lookup_file {
@@ -93,7 +167,7 @@ sub lookup_file {
 }
 
 sub bss_poll {
-	my $c = shift;
+	my ($c, $accept_gzip) = @_;
 	my $json = '{}';
 	if (-f $META_FILE) {
 		if (open my $fh, '<', $META_FILE) {
@@ -102,40 +176,142 @@ sub bss_poll {
 			close $fh;
 		}
 	}
+	_send_response($c, 'application/json', $json, $accept_gzip,
+		'Cache-Control' => 'no-cache, no-store');
+}
+
+# GET /__bss/source?url=/path — return raw markdown source for editing
+sub bss_source {
+	my ($c, $request_url, $accept_gzip) = @_;
+
+	my ($target) = $request_url =~ /[?&]url=([^&]*)/;
+	$target //= '/';
+	$target =~ s/%([0-9A-Fa-f]{2})/chr(hex($1))/ge;
+
+	my $source_path = _url_to_source($target);
+	unless ($source_path) {
+		return _send_json($c, 404, '{"error":"source not found"}');
+	}
+
+	if (open my $fh, '<:encoding(UTF-8)', $source_path) {
+		local $/;
+		my $content = <$fh>;
+		close $fh;
+
+		# Return JSON with path and content
+		my $json_content = $content;
+		$json_content =~ s/\\/\\\\/g;
+		$json_content =~ s/"/\\"/g;
+		$json_content =~ s/\n/\\n/g;
+		$json_content =~ s/\r/\\r/g;
+		$json_content =~ s/\t/\\t/g;
+		my $json = "{\"path\":\"$source_path\",\"content\":\"$json_content\"}";
+
+		_send_response($c, 'application/json', $json, $accept_gzip,
+			'Cache-Control' => 'no-cache, no-store');
+	} else {
+		_send_json($c, 500, '{"error":"cannot read file"}');
+	}
+}
+
+# POST /__bss/save?url=/path — write markdown source back to disk
+sub bss_save {
+	my ($c, $request_url, $body) = @_;
+
+	my ($target) = $request_url =~ /[?&]url=([^&]*)/;
+	$target //= '/';
+	$target =~ s/%([0-9A-Fa-f]{2})/chr(hex($1))/ge;
+
+	my $source_path = _url_to_source($target);
+	unless ($source_path) {
+		return _send_json($c, 404, '{"error":"source not found"}');
+	}
+
+	# Security: verify the resolved path is within SRC_DIR
+	my $abs_path = abs_path($source_path);
+	my $abs_src  = abs_path($SRC_DIR);
+	unless ($abs_path && $abs_src && $abs_path =~ /^\Q$abs_src\E/) {
+		return _send_json($c, 403, '{"error":"forbidden"}');
+	}
+
+	if (open my $fh, '>:encoding(UTF-8)', $source_path) {
+		print $fh $body;
+		close $fh;
+		_send_json($c, 200, '{"ok":true}');
+	} else {
+		_send_json($c, 500, '{"error":"cannot write file"}');
+	}
+}
+
+sub _send_json {
+	my ($c, $code, $json) = @_;
+	my $status = $code == 200 ? 'OK'
+		: $code == 403 ? 'Forbidden'
+		: $code == 404 ? 'Not Found'
+		: 'Internal Server Error';
 	my $len = length($json);
-	print $c "HTTP/1.0 200 OK$CRLF";
+	print $c "HTTP/1.0 $code $status$CRLF";
 	print $c "Content-type: application/json$CRLF";
 	print $c "Content-length: $len$CRLF";
-	print $c "Cache-Control: no-cache, no-store$CRLF";
 	print $c $CRLF;
 	print $c $json;
 }
 
+# Map a served URL back to its source markdown file
+sub _url_to_source {
+	my ($url) = @_;
+	return undef unless $SRC_DIR;
+
+	$url =~ s!^/!!;               # strip leading /
+	$url =~ s!\?.*$!!;            # strip query string
+	$url =~ s!/$!index.html!;     # trailing / → index.html
+	$url = 'index.html' if $url eq '';
+
+	# If the URL includes the SRC directory name as a prefix, strip it
+	my $src_base = (File::Spec->splitdir($SRC_DIR))[-1];
+	$url =~ s!^\Q$src_base\E/!! if defined $src_base;
+
+	# Remove .html extension and try markdown extensions
+	(my $base = $url) =~ s!\.html$!!;
+
+	for my $ext (qw(.md .markdown .mdown .mkdn .mkd .MD .Markdown)) {
+		my $path = catfile($SRC_DIR, $base . $ext);
+		return $path if -f $path;
+	}
+
+	# Try as directory index
+	for my $ext (qw(.md .markdown .mdown .mkdn .mkd .MD .Markdown)) {
+		my $path = catfile($SRC_DIR, $base, "index" . $ext);
+		return $path if -f $path;
+	}
+
+	return undef;
+}
+
 sub serve_html_with_reload {
-	my ($c, $fh) = @_;
+	my ($c, $fh, $url, $accept_gzip) = @_;
 
 	local $/;
 	my $html = <$fh>;
 	close $fh;
 
-	my $snippet = _dev_snippet();
+	my $snippet = _dev_snippet($url);
 
 	# Inject before </body> if present, otherwise append
 	unless ($html =~ s!(</body>)!$snippet$1!i) {
 		$html .= $snippet;
 	}
 
-	my $length = length($html);
-	print $c "HTTP/1.0 200 OK$CRLF";
-	print $c "Content-length: $length$CRLF";
-	print $c "Content-type: text/html$CRLF";
-	print $c $CRLF;
-	print $c $html;
+	_send_response($c, 'text/html', $html, $accept_gzip);
 }
 
 sub _dev_snippet {
-	return <<'END_SNIPPET';
-<!-- bss dev mode: live reload + stats -->
+	my ($url) = @_;
+	$url //= '/';
+	# Escape for safe embedding in JS string
+	$url =~ s/'/\\'/g;
+	return <<"END_SNIPPET";
+<!-- bss dev mode: live reload + stats + editor -->
 <style>
 html {
     transition: opacity 0.15s ease;
@@ -194,9 +370,122 @@ html.bss-fade-out {
     margin-right: 6px;
     animation: bss-pulse 2s infinite;
 }
-@keyframes bss-pulse {
+\@keyframes bss-pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.4; }
+}
+/* Editor panel */
+#bss-editor {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #1e1e2e;
+    color: #cdd6f4;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 12px;
+    z-index: 99998;
+    border-top: 2px solid #45475a;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+    transition: transform 0.25s ease;
+    transform: translateY(100%);
+}
+#bss-editor.bss-editor-open {
+    transform: translateY(0);
+}
+#bss-editor .bss-editor-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 14px;
+    background: #181825;
+    border-bottom: 1px solid #313244;
+    cursor: pointer;
+    user-select: none;
+}
+#bss-editor .bss-editor-bar .bss-editor-title {
+    color: #89b4fa;
+    font-weight: 600;
+}
+#bss-editor .bss-editor-bar .bss-editor-path {
+    color: #a6adc8;
+    font-size: 11px;
+    margin-left: 12px;
+}
+#bss-editor .bss-editor-bar .bss-editor-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+#bss-editor .bss-editor-bar button {
+    background: #313244;
+    color: #cdd6f4;
+    border: 1px solid #45475a;
+    border-radius: 4px;
+    padding: 3px 12px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+#bss-editor .bss-editor-bar button:hover {
+    background: #45475a;
+    border-color: #89b4fa;
+}
+#bss-editor .bss-editor-bar button.bss-save-btn {
+    background: #a6e3a1;
+    color: #1e1e2e;
+    border-color: #a6e3a1;
+    font-weight: 600;
+}
+#bss-editor .bss-editor-bar button.bss-save-btn:hover {
+    background: #94e2d5;
+    border-color: #94e2d5;
+}
+#bss-editor .bss-editor-status {
+    font-size: 11px;
+    margin-left: 8px;
+}
+#bss-editor textarea {
+    width: 100%;
+    height: 260px;
+    background: #11111b;
+    color: #cdd6f4;
+    border: none;
+    padding: 12px 14px;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    box-sizing: border-box;
+    tab-size: 4;
+}
+#bss-editor textarea:focus {
+    box-shadow: inset 0 0 0 1px #89b4fa;
+}
+/* Toggle button (always visible) */
+#bss-editor-toggle {
+    position: fixed;
+    bottom: 12px;
+    right: 240px;
+    background: #1e1e2e;
+    color: #89b4fa;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: 1px solid #45475a;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    z-index: 99999;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+#bss-editor-toggle:hover {
+    border-color: #89b4fa;
+    box-shadow: 0 4px 16px rgba(137, 180, 250, 0.15);
 }
 </style>
 <div id="bss-dev-stats" onclick="this.classList.toggle('bss-open')">
@@ -209,9 +498,27 @@ html.bss-fade-out {
         <div class="bss-row"><span class="bss-label">Built at</span><span class="bss-value" id="bss-built-at">&mdash;</span></div>
     </div>
 </div>
+<div id="bss-editor-toggle" onclick="bssToggleEditor()">\\u270f\\ufe0f Edit</div>
+<div id="bss-editor">
+    <div class="bss-editor-bar" onclick="bssToggleEditor()">
+        <div>
+            <span class="bss-editor-title">\\u270f\\ufe0f Editor</span>
+            <span class="bss-editor-path" id="bss-editor-path"></span>
+        </div>
+        <div class="bss-editor-actions" onclick="event.stopPropagation()">
+            <span class="bss-editor-status" id="bss-editor-status"></span>
+            <button class="bss-save-btn" onclick="bssSaveSource()">Save</button>
+            <button onclick="bssToggleEditor()">\\u2715 Close</button>
+        </div>
+    </div>
+    <textarea id="bss-editor-textarea" onclick="event.stopPropagation()" spellcheck="false"></textarea>
+</div>
 <script>
 (function() {
     var lastBuildId = null;
+    var currentUrl = '$url';
+    var editorLoaded = false;
+
     function formatBytes(bytes) {
         if (bytes < 1024) return bytes + ' B';
         if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
@@ -245,6 +552,84 @@ html.bss-fade-out {
     }
     setInterval(poll, 1000);
     poll();
+
+    /* Editor functions */
+    window.bssToggleEditor = function() {
+        var editor = document.getElementById('bss-editor');
+        var toggle = document.getElementById('bss-editor-toggle');
+        var isOpen = editor.classList.toggle('bss-editor-open');
+        toggle.style.display = isOpen ? 'none' : 'block';
+        if (isOpen && !editorLoaded) {
+            bssLoadSource();
+        }
+    };
+
+    window.bssLoadSource = function() {
+        var status = document.getElementById('bss-editor-status');
+        status.textContent = 'Loading...';
+        status.style.color = '#a6adc8';
+        fetch('/__bss/source?url=' + encodeURIComponent(currentUrl))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) {
+                    status.textContent = data.error;
+                    status.style.color = '#f38ba8';
+                    return;
+                }
+                document.getElementById('bss-editor-textarea').value = data.content;
+                document.getElementById('bss-editor-path').textContent = data.path;
+                status.textContent = '';
+                editorLoaded = true;
+            })
+            .catch(function(e) {
+                status.textContent = 'Failed to load';
+                status.style.color = '#f38ba8';
+            });
+    };
+
+    window.bssSaveSource = function() {
+        var status = document.getElementById('bss-editor-status');
+        var content = document.getElementById('bss-editor-textarea').value;
+        status.textContent = 'Saving...';
+        status.style.color = '#f9e2af';
+        fetch('/__bss/save?url=' + encodeURIComponent(currentUrl), {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: content
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.ok) {
+                status.textContent = 'Saved!';
+                status.style.color = '#a6e3a1';
+                setTimeout(function() { status.textContent = ''; }, 2000);
+            } else {
+                status.textContent = data.error || 'Save failed';
+                status.style.color = '#f38ba8';
+            }
+        })
+        .catch(function() {
+            status.textContent = 'Save failed';
+            status.style.color = '#f38ba8';
+        });
+    };
+
+    /* Tab key inserts a tab instead of leaving the textarea */
+    var ta = document.getElementById('bss-editor-textarea');
+    ta.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            var start = this.selectionStart;
+            var end = this.selectionEnd;
+            this.value = this.value.substring(0, start) + '\\t' + this.value.substring(end);
+            this.selectionStart = this.selectionEnd = start + 1;
+        }
+        /* Ctrl/Cmd+S to save */
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault();
+            bssSaveSource();
+        }
+    });
 })();
 </script>
 END_SNIPPET
