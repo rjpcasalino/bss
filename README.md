@@ -71,7 +71,7 @@ $ nix build
 
 ## Code Review Notes
 
-A frank review of the codebase as of this commit:
+A frank review of the codebase by Claude Opus:
 
 **Bugs fixed in this branch:**
 - `lookup_file` in Web.pm was missing its final `return` statement — the function would always return `undef`
