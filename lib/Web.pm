@@ -52,10 +52,30 @@ sub lookup_file {
 	$path .= 'index.html' if $url =~ m!/$!; # get index.html if path ends in /
 	return if $path =~ m!/\.\./!; # don't allow relative paths (..)
 	return (undef, 'directory', undef) if -d $path; # oops! a directory
-	my $type = 'text/plain'; # default MIME type
-	$type = 'text/html' if $path =~ /\.html?$/i; # HTML file?
-	$type = 'image/gif' if $path =~ /\.gif$/i; # gif file?
-	$type = 'image/jpeg' if $path =~ /\.jpe?g$/i; # jpg file?
+	my %MIME_TYPES = (
+		html  => 'text/html',
+		htm   => 'text/html',
+		css   => 'text/css',
+		js    => 'application/javascript',
+		json  => 'application/json',
+		xml   => 'application/xml',
+		gif   => 'image/gif',
+		jpg   => 'image/jpeg',
+		jpeg  => 'image/jpeg',
+		png   => 'image/png',
+		svg   => 'image/svg+xml',
+		ico   => 'image/x-icon',
+		webp  => 'image/webp',
+		woff  => 'font/woff',
+		woff2 => 'font/woff2',
+		ttf   => 'font/ttf',
+		otf   => 'font/otf',
+		eot   => 'application/vnd.ms-fontobject',
+		pdf   => 'application/pdf',
+		txt   => 'text/plain',
+	);
+	my ($ext) = $path =~ /\.([^.]+)$/;
+	my $type = (defined $ext && $MIME_TYPES{lc $ext}) || 'application/octet-stream';
 	return unless my $length = (stat($path))[7]; # file size
 	return unless my $fh = IO::File->new($path, "<"); # try to open file
 	return ($fh, $type, $length);
