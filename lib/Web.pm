@@ -8,14 +8,20 @@ use parent 'Exporter';
 our @EXPORT = qw(handle_connection docroot set_dev_mode);
 
 use IO::Compress::Gzip qw(gzip $GzipError);
-use Cwd qw(abs_path);
+use Cwd qw(abs_path realpath);
 use File::Spec::Functions qw(catfile);
+use JSON::PP;
 
 my $DOCUMENT_ROOT = defined($ENV{'BSS_DOCROOT'}) ? $ENV{'BSS_DOCROOT'} : '_site';
 my $CRLF = "\015\012";
 my $DEV_MODE = 0;
 my $META_FILE = '';
 my $SRC_DIR = '';
+
+my $MAX_POST_BODY  = 10_000_000;  # 10 MB
+my $MIN_GZIP_BYTES = 256;         # skip compression for tiny responses
+
+my @MD_EXTENSIONS = qw(.md .markdown .mdown .mkdn .mkd .MD .Markdown);
 
 my %MIME_TYPES = (
 	html  => 'text/html',
@@ -70,7 +76,7 @@ sub handle_connection {
 	my $post_body = '';
 	if ($method eq 'POST') {
 		my $len = int($headers{'content-length'} // 0);
-		if ($len > 0 && $len < 10_000_000) {
+		if ($len > 0 && $len < $MAX_POST_BODY) {
 			my $remaining = $len;
 			while ($remaining > 0) {
 				my $bytes_read = read($c, my $chunk, $remaining);
@@ -130,7 +136,7 @@ sub _send_response {
 	my ($c, $type, $body, $try_gzip, %extra) = @_;
 	my $encoding = '';
 
-	if ($try_gzip && $COMPRESSIBLE{$type} && length($body) > 256) {
+	if ($try_gzip && $COMPRESSIBLE{$type} && length($body) > $MIN_GZIP_BYTES) {
 		my $compressed;
 		if (gzip(\$body => \$compressed)) {
 			$body = $compressed;
@@ -198,14 +204,10 @@ sub bss_source {
 		my $content = <$fh>;
 		close $fh;
 
-		# Return JSON with path and content
-		my $json_content = $content;
-		$json_content =~ s/\\/\\\\/g;
-		$json_content =~ s/"/\\"/g;
-		$json_content =~ s/\n/\\n/g;
-		$json_content =~ s/\r/\\r/g;
-		$json_content =~ s/\t/\\t/g;
-		my $json = "{\"path\":\"$source_path\",\"content\":\"$json_content\"}";
+		my $json = JSON::PP->new->utf8->encode({
+			path    => $source_path,
+			content => $content,
+		});
 
 		_send_response($c, 'application/json', $json, $accept_gzip,
 			'Cache-Control' => 'no-cache, no-store');
@@ -227,9 +229,9 @@ sub bss_save {
 		return _send_json($c, 404, '{"error":"source not found"}');
 	}
 
-	# Security: verify the resolved path is within SRC_DIR
-	my $abs_path = abs_path($source_path);
-	my $abs_src  = abs_path($SRC_DIR);
+	# Security: resolve symlinks and verify the path is within SRC_DIR
+	my $abs_path = realpath($source_path);
+	my $abs_src  = realpath($SRC_DIR);
 	unless ($abs_path && $abs_src && $abs_path =~ /^\Q$abs_src\E/) {
 		return _send_json($c, 403, '{"error":"forbidden"}');
 	}
@@ -274,13 +276,13 @@ sub _url_to_source {
 	# Remove .html extension and try markdown extensions
 	(my $base = $url) =~ s!\.html$!!;
 
-	for my $ext (qw(.md .markdown .mdown .mkdn .mkd .MD .Markdown)) {
+	for my $ext (@MD_EXTENSIONS) {
 		my $path = catfile($SRC_DIR, $base . $ext);
 		return $path if -f $path;
 	}
 
 	# Try as directory index
-	for my $ext (qw(.md .markdown .mdown .mkdn .mkd .MD .Markdown)) {
+	for my $ext (@MD_EXTENSIONS) {
 		my $path = catfile($SRC_DIR, $base, "index" . $ext);
 		return $path if -f $path;
 	}
