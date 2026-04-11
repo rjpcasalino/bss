@@ -12,6 +12,7 @@ use v5.36;
 use strict;
 use warnings;
 use open qw( :std :encoding(UTF-8) );
+use Time::HiRes qw(time);
 
 # FIXME
 # Template Toolkit is doing something strange
@@ -56,6 +57,7 @@ my %opts     = ( server => '', verbose => '', help => '');
 my $manifest = "manifest.ini";
 my $quit     = 0;
 my $MD_EXT_RE = qr/\.[mM](ark)?[dD](own)?$/;
+my $build_id  = 0;
 
 $SIG{CHLD} = sub {
     while ( waitpid( -1, POSIX::WNOHANG ) > 0 ) { }
@@ -120,14 +122,34 @@ sub do_build {
 
     mkdir( $config{DEST} ) unless -e $config{DEST};
 
-    my @collections = defined($config{COLLECTIONS}) ? split(/,/, $config{COLLECTIONS}) : ();
+    # Run the initial build
+    run_build(%config);
+
+    say "Site created in $config{DEST}!";
+
+    if ($opts{server}) {
+        set_dev_mode(catfile($config{DEST}, '__bss_meta.json'));
+        fork_watcher(%config);
+        server(%config);
+    }
+}
+
+sub run_build {
+    my %config    = @_;
+    my $start_time = time();
+
+    # Parse collections (re-scanned each build so new files are picked up)
+    my @collections =
+      defined( $config{COLLECTIONS} ) && !ref( $config{COLLECTIONS} )
+      ? split( /,/, $config{COLLECTIONS} )
+      : ();
     my %collections = ();
     for my $dir (@collections) {
         $collections{$dir} = [];
         find(
             sub {
                 return if $_ eq "." or $_ eq "..";
-                (my $name = $_) =~ s/$MD_EXT_RE/\.html/;
+                ( my $name = $_ ) =~ s/$MD_EXT_RE/\.html/;
                 push @{ $collections{$dir} }, $name;
             },
             File::Spec->catfile( $config{SRC}, $dir )
@@ -135,8 +157,7 @@ sub do_build {
     }
     $config{COLLECTIONS} = \%collections if @collections;
 
-    # Pre-scan template directory to build a layout lookup table (avoids
-    # repeated find() calls during per-file processing)
+    # Pre-scan template directory to build a layout lookup table
     my %template_map;
     find(
         sub {
@@ -149,7 +170,7 @@ sub do_build {
     );
     $config{TEMPLATE_MAP} = \%template_map;
 
-    # the actual build; note the sub and wanted here
+    # the actual build
     find(
         {
             wanted => sub { build(%config) }
@@ -157,15 +178,14 @@ sub do_build {
         $config{SRC}
     );
 
-    # rsync is annoying...
-    # easy to exclude things using a file, however.
+    # rsync
     open my $exclude_fh, ">", "exclude.txt";
     my @excludes = split /,/, $config{EXCLUDE};
     for my $line (@excludes) {
         say $exclude_fh "$line";
     }
+    close $exclude_fh;
 
-    # rsync info
     my $info_flags = "NONE";
     $info_flags = "ALL" if $opts{verbose};
 
@@ -183,8 +203,121 @@ sub do_build {
         $config{SRC}
     );
 
-    say "Site created in $config{DEST}!";
-    server(%config) if $opts{server};
+    # Gather stats and write build metadata
+    my $elapsed_ms = int( ( time() - $start_time ) * 1000 );
+    $build_id++;
+    my ( $page_count, $file_count, $total_size ) =
+      gather_site_stats( $config{DEST} );
+
+    write_bss_meta(
+        $config{DEST},
+        {
+            build_id         => $build_id,
+            build_time       => strftime( "%Y-%m-%d %H:%M:%S", localtime() ),
+            build_duration_ms => $elapsed_ms,
+            page_count       => $page_count,
+            file_count       => $file_count,
+            total_size_bytes => $total_size,
+        }
+    );
+}
+
+sub gather_site_stats {
+    my ($dest_dir) = @_;
+    my ( $page_count, $file_count, $total_size ) = ( 0, 0, 0 );
+    find(
+        sub {
+            return unless -f $_;
+            return if $_ eq '__bss_meta.json';
+            $file_count++;
+            $total_size += -s $_;
+            $page_count++ if /\.html$/;
+        },
+        $dest_dir
+    );
+    return ( $page_count, $file_count, $total_size );
+}
+
+sub write_bss_meta {
+    my ( $dest, $stats ) = @_;
+    my $meta_path = catfile( $dest, '__bss_meta.json' );
+    open my $fh, ">", $meta_path;
+    printf $fh "{\n";
+    printf $fh "  \"build_id\": %d,\n",           $stats->{build_id};
+    printf $fh "  \"build_time\": \"%s\",\n",      $stats->{build_time};
+    printf $fh "  \"build_duration_ms\": %d,\n",   $stats->{build_duration_ms};
+    printf $fh "  \"page_count\": %d,\n",           $stats->{page_count};
+    printf $fh "  \"file_count\": %d,\n",           $stats->{file_count};
+    printf $fh "  \"total_size_bytes\": %d\n",      $stats->{total_size_bytes};
+    printf $fh "}\n";
+    close $fh;
+}
+
+sub scan_src_mtimes {
+    my ( $src_dir, $tt_dir ) = @_;
+    my %mtimes;
+    find(
+        sub {
+            return unless -f $_;
+            return if /\.html$/;    # skip generated HTML
+            $mtimes{$File::Find::name} = ( stat($_) )[9];
+        },
+        $src_dir
+    );
+    if ( defined $tt_dir && -d $tt_dir ) {
+        find(
+            sub {
+                return unless -f $_;
+                $mtimes{$File::Find::name} = ( stat($_) )[9];
+            },
+            $tt_dir
+        );
+    }
+    return %mtimes;
+}
+
+sub has_changes {
+    my ( $old_ref, $new_ref ) = @_;
+    for my $file ( keys %$new_ref ) {
+        return 1 unless exists $old_ref->{$file};
+        return 1 if $new_ref->{$file} != $old_ref->{$file};
+    }
+    for my $file ( keys %$old_ref ) {
+        return 1 unless exists $new_ref->{$file};
+    }
+    return 0;
+}
+
+sub fork_watcher {
+    my %config = @_;
+
+    defined( my $pid = fork() ) or die "Can't fork watcher: $!";
+
+    if ( $pid == 0 ) {
+        # Child process: watch for file changes and rebuild
+        my %last_mtimes =
+          scan_src_mtimes( $config{SRC}, $config{TT_DIR} );
+        say "Watching $config{SRC} for changes...";
+
+        while ( !$quit ) {
+            sleep 1;
+            my %current =
+              scan_src_mtimes( $config{SRC}, $config{TT_DIR} );
+            if ( has_changes( \%last_mtimes, \%current ) ) {
+                say "Change detected, rebuilding...";
+                eval { run_build(%config) };
+                if ($@) {
+                    warn "Rebuild failed: $@\n";
+                }
+                else {
+                    say "Rebuild complete!";
+                }
+                %last_mtimes =
+                  scan_src_mtimes( $config{SRC}, $config{TT_DIR} );
+            }
+        }
+        exit 0;
+    }
 }
 
 sub build {
