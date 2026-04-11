@@ -141,6 +141,9 @@ sub _send_response {
 	my ($c, $type, $body, $try_gzip, %extra) = @_;
 	my $encoding = '';
 
+	# Encode wide-character strings to UTF-8 bytes before compression/output
+	utf8::encode($body) if utf8::is_utf8($body);
+
 	if ($try_gzip && $COMPRESSIBLE{$type} && length($body) > $MIN_GZIP_BYTES) {
 		my $compressed;
 		if (gzip(\$body => \$compressed)) {
