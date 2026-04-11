@@ -65,9 +65,9 @@ $ nix build
 ```
 
 ## Known Issues
-- [ ] Build can be slow on low-power hardware (~13s on 900MHz Intel); template processing is the bottleneck
 - [ ] Collection discovery only picks up `.md`/`.markdown` extensions
-- [ ] Template directory matching uses a simple regex that may match unintended paths
+- [ ] If the template directory is under `SRC`, the post-build HTML cleanup may delete template `.html` files
+- [ ] `system "rsync"` failure is warned but does not abort the build
 
 ## Code Review Notes
 
@@ -84,12 +84,20 @@ A frank review of the codebase as of this commit:
 - `mkdir DEST` was immediately followed by `rm -rf DEST` — the mkdir was pointless, and the rm deleted user content; removed the rm
 - HTML typo `<.p>` in redirect response
 - `.git_ignore` renamed to `.gitignore` so Git actually reads it
+- Template directory pruning used `$_ =~ /$config{TT_DIR}/` which compared a basename against an absolute path — never matched; fixed to use `abs_path($File::Find::name)`
+- `no warnings "uninitialized"` removed — proper `//` defaults added for `$yaml->{title}`, `$yaml->{layout}`, and `$config{COLLECTIONS}`
+- Image extension regex had operator precedence bug (`\.png|\.jpg|...` — only last alternative was anchored); fixed to `\.(png|jpe?g|gif|svg)$`
+- `\&build(%config)` in wanted callback — unnecessary reference operator removed
+- `$config{COLLECTIONS} = \%collections` was inside the for loop; moved outside
+
+**Performance improvements:**
+- Template lookup in `write_html` previously ran `find()` over the template directory for every markdown file processed. Replaced with a one-time pre-scan that builds a `%template_map` hash, reducing build time from O(n×m) to O(n+m) where n=files and m=templates.
+- MIME type hash in Web.pm moved from per-request allocation to package-level declaration.
+
+**Security notes:**
+- `EVAL_PERL` in Template Toolkit config allows arbitrary Perl execution — documented the risk with an inline comment. Disabled by default (`// 0`).
+- `rsync` exit status is now checked and warned on failure.
 
 **Remaining observations:**
-- `no warnings "uninitialized"` is still active globally — this masks real bugs. Variables should be checked with `defined()` or `//` where needed.
-- The `server` sub uses `fork()` without reaping children properly (now restored SIGCHLD handler).
 - There are no tests. Even basic tests for YAML parsing, markdown conversion, and the web server would catch regressions.
-- `system "rsync"` is called without checking the return value.
-- `EVAL_PERL` in Template Toolkit config is a security risk if users process untrusted templates.
 - The `find()` + `rsync` build pipeline is fragile: files are converted in-place in `SRC` then rsync'd to `DEST`, then the HTML files are deleted from `SRC`. If the process is interrupted, `SRC` is left dirty.
-- `Web.pm` uses `Exporter` with `@ISA` instead of `use parent 'Exporter'`.

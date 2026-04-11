@@ -12,7 +12,6 @@ use v5.36;
 use strict;
 use warnings;
 use open qw( :std :encoding(UTF-8) );
-no warnings "uninitialized";
 
 # FIXME
 # Template Toolkit is doing something strange
@@ -93,6 +92,8 @@ sub do_build {
         ENCODING    => $manifest->val( "build", "encoding" )    // "UTF-8",
         COLLECTIONS => $manifest->val( "build", "collections" ) // undef,
         EXCLUDE => $manifest->val( "build",  "exclude" ) // "*.md, templates",
+        # Security: EVAL_PERL allows arbitrary Perl in templates; only
+        # enable for trusted template sources.
         EVAL_PERL => $manifest->val( "build",  "evaluate perl" ) // 0,
         PORT    => $manifest->val( "server", "port" )    // "9000",
         HOST    => $manifest->val( "server", "host" )    // "localhost"
@@ -119,26 +120,39 @@ sub do_build {
 
     mkdir( $config{DEST} ) unless -e $config{DEST};
 
-    my @collections = split /,/, $config{COLLECTIONS};
+    my @collections = defined($config{COLLECTIONS}) ? split(/,/, $config{COLLECTIONS}) : ();
     my %collections = ();
     for my $dir (@collections) {
         $collections{$dir} = [];
         find(
             sub {
                 return if $_ eq "." or $_ eq "..";
-                # FIXME: only picks up .md ext
                 (my $name = $_) =~ s/$MD_EXT_RE/\.html/;
                 push @{ $collections{$dir} }, $name;
             },
             File::Spec->catfile( $config{SRC}, $dir )
         );
-        $config{COLLECTIONS} = \%collections;
     }
+    $config{COLLECTIONS} = \%collections if @collections;
+
+    # Pre-scan template directory to build a layout lookup table (avoids
+    # repeated find() calls during per-file processing)
+    my %template_map;
+    find(
+        sub {
+            return unless -f $_;
+            if ( $_ =~ /^(.+)\.(tmpl|template|html|tt2?)$/ ) {
+                $template_map{$1} = $_;
+            }
+        },
+        $config{TT_DIR}
+    );
+    $config{TEMPLATE_MAP} = \%template_map;
 
     # the actual build; note the sub and wanted here
     find(
         {
-            wanted => sub { \&build(%config) }
+            wanted => sub { build(%config) }
         },
         $config{SRC}
     );
@@ -155,9 +169,10 @@ sub do_build {
     my $info_flags = "NONE";
     $info_flags = "ALL" if $opts{verbose};
 
-    system "rsync", "-avmh", "--exclude-from=exclude.txt",
+    my $rsync_exit = system "rsync", "-avmh", "--exclude-from=exclude.txt",
       "--info=$info_flags", $config{SRC},
       $config{DEST};
+    warn "rsync exited with status $rsync_exit\n" if $rsync_exit != 0;
 
     # house cleaning
     unlink("exclude.txt");
@@ -176,9 +191,8 @@ sub build {
     my %config   = @_;
     my $filename = $_;
     if ( -d $filename ) {
-
-        # FIXME
-        if ( $_ =~ /$config{TT_DIR}/ ) {
+        my $resolved = abs_path($File::Find::name);
+        if ( defined $resolved && $resolved eq $config{TT_DIR} ) {
             say "Ignoring: $File::Find::name" if $opts{verbose};
             $File::Find::prune = 1;
         }
@@ -186,7 +200,7 @@ sub build {
     elsif ( $_ =~ /$MD_EXT_RE/ ) {
         handle_yaml(%config);
     }
-    elsif ( $_ =~ /\.png|\.jpg|\.jpeg|\.gif|\.svg$/i ) {
+    elsif ( $_ =~ /\.(png|jpe?g|gif|svg)$/i ) {
         # images are copied as-is by rsync
     }
 }
@@ -206,6 +220,7 @@ sub handle_yaml {
         $yaml = Load($1);
         $body = substr($data, $+[0]);
     }
+    $yaml //= {};
     write_html( $markdown, $yaml, $body, %config );
 }
 
@@ -219,27 +234,24 @@ sub write_html {
     open my $HTML, ">", $html;
 
     my $vars = {
-        title         => $yaml->{title},
+        title         => $yaml->{title} // '',
         body          => [$rendered_body],
         collections   => $config{COLLECTIONS},
     };
 
-    # select layout (template)
-    find(
-	sub {
-	    # see no warnings 'uninitialized';
-	    if ( $_ =~ /$yaml->{layout}(.tmpl|.template|.html|.tt|.tt2)$/ ) {
-		$yaml->{layout} = $_;
-	    }
-	},
-	$config{TT_DIR}
-    );
-    # FIXME
-    # seems slow; look into speeding up
-    # takes 13 ~ seconds on 900MHz Intel
-    $template->process( $yaml->{layout}, $vars, $HTML )
+    # Resolve layout name to a template file via the pre-scanned map
+    my $layout_name = $yaml->{layout} // '';
+    my $layout_file = $config{TEMPLATE_MAP}->{$layout_name};
+    unless ( defined $layout_file ) {
+        warn "No template found for layout '$layout_name' in $html\n";
+        close $HTML;
+        return;
+    }
+
+    $template->process( $layout_file, $vars, $HTML )
       or die $template->error();
-    say "$yaml->{title} processed." if $opts{verbose};
+    my $title = $yaml->{title} // $html;
+    say "$title processed." if $opts{verbose};
 }
 
 sub server {
