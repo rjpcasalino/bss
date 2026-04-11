@@ -73,7 +73,7 @@ $ nix build
 
 A frank review of the codebase by Claude Opus:
 
-**Bugs fixed in this branch:**
+**Bugs fixed:**
 - `lookup_file` in Web.pm was missing its final `return` statement — the function would always return `undef`
 - MIME types for GIF and JPEG were `text/gif` and `text/jpeg` instead of `image/gif` and `image/jpeg`
 - Path traversal regex used `\\.` (literal backslash + any char) instead of `\.\.` (two literal dots)
