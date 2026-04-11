@@ -59,6 +59,9 @@ my $quit     = 0;
 my $MD_EXT_RE = qr/\.[mM](ark)?[dD](own)?$/;
 my $build_id  = 0;
 
+# Editor temp/swap files to ignore (vim .swp/.swo/~, emacs #file#/file~, etc.)
+my $EDITOR_JUNK_RE = qr/(?:^\..*\.sw[a-p]$|~$|^4913$|^\#.*\#$)/;
+
 $SIG{CHLD} = sub {
     while ( waitpid( -1, POSIX::WNOHANG ) > 0 ) { }
 };
@@ -149,6 +152,7 @@ sub run_build {
         find(
             sub {
                 return if $_ eq "." or $_ eq "..";
+                return if $_ =~ $EDITOR_JUNK_RE;
                 ( my $name = $_ ) =~ s/$MD_EXT_RE/\.html/;
                 push @{ $collections{$dir} }, $name;
             },
@@ -260,6 +264,7 @@ sub scan_src_mtimes {
         sub {
             return unless -f $_;
             return if /\.html$/;    # skip generated HTML
+            return if $_ =~ $EDITOR_JUNK_RE;
             $mtimes{$File::Find::name} = ( stat($_) )[9];
         },
         $src_dir
@@ -268,6 +273,7 @@ sub scan_src_mtimes {
         find(
             sub {
                 return unless -f $_;
+                return if $_ =~ $EDITOR_JUNK_RE;
                 $mtimes{$File::Find::name} = ( stat($_) )[9];
             },
             $tt_dir

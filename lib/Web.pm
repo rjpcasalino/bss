@@ -137,6 +137,12 @@ sub _dev_snippet {
 	return <<'END_SNIPPET';
 <!-- bss dev mode: live reload + stats -->
 <style>
+html {
+    transition: opacity 0.15s ease;
+}
+html.bss-fade-out {
+    opacity: 0 !important;
+}
 #bss-dev-stats {
     position: fixed;
     bottom: 12px;
@@ -219,6 +225,10 @@ sub _dev_snippet {
         el('bss-build-time').textContent = data.build_duration_ms + 'ms';
         el('bss-built-at').textContent = data.build_time;
     }
+    function smoothReload() {
+        document.documentElement.classList.add('bss-fade-out');
+        setTimeout(function() { location.reload(); }, 180);
+    }
     function poll() {
         fetch('/__bss/poll')
             .then(function(r) { return r.json(); })
@@ -226,7 +236,7 @@ sub _dev_snippet {
                 if (lastBuildId === null) {
                     lastBuildId = data.build_id;
                 } else if (data.build_id !== lastBuildId) {
-                    location.reload();
+                    smoothReload();
                     return;
                 }
                 updateStats(data);
