@@ -243,6 +243,11 @@ sub bss_template {
 		return _send_json($c, 404, '{"error":"template not found"}');
 	}
 
+	# Security: reject template names with path traversal components
+	if ($name =~ m!(?:^|/)\.\.(?:/|$)! || $name =~ m!/!) {
+		return _send_json($c, 403, '{"error":"forbidden"}');
+	}
+
 	my $template_path = _find_template($name);
 	unless ($template_path) {
 		return _send_json($c, 404, '{"error":"template not found"}');
@@ -359,6 +364,9 @@ sub _url_to_source {
 sub _find_template {
 	my ($name) = @_;
 	return undef unless $name && $TT_DIR && -d $TT_DIR;
+
+	# Reject names with path traversal or directory separators
+	return undef if $name =~ m!(?:^|/)\.\.(?:/|$)! || $name =~ m!/!;
 
 	my @exts = qw(.tmpl .template .html .tt .tt2);
 
@@ -693,7 +701,7 @@ html.bss-fade-out {
             } else if (sourceData && sourceData.layout) {
                 bssLoadTemplate(sourceData.layout);
             } else {
-                ta.value = '(no template found for this page)';
+                ta.value = 'No template found for this page';
                 pathEl.textContent = '';
             }
         }
