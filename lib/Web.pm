@@ -17,6 +17,7 @@ my $CRLF = "\015\012";
 my $DEV_MODE = 0;
 my $META_FILE = '';
 my $SRC_DIR = '';
+my $TT_DIR = '';
 
 my $MAX_POST_BODY  = 10_000_000;  # 10 MB
 my $MIN_GZIP_BYTES = 256;         # skip compression for tiny responses
@@ -54,6 +55,7 @@ my %COMPRESSIBLE = map { $_ => 1 } qw(
 sub set_dev_mode {
 	$META_FILE = shift;
 	$SRC_DIR = shift // '';
+	$TT_DIR = shift // '';
 	$DEV_MODE = 1;
 }
 
@@ -92,6 +94,9 @@ sub handle_connection {
 		return bss_poll($c, $accept_gzip) if $url eq '/__bss/poll';
 		if ($url =~ m!^/__bss/source!) {
 			return bss_source($c, $url, $accept_gzip) if $method eq 'GET';
+		}
+		if ($url =~ m!^/__bss/template!) {
+			return bss_template($c, $url, $accept_gzip) if $method eq 'GET';
 		}
 		if ($url =~ m!^/__bss/save!) {
 			return bss_save($c, $url, $post_body) if $method eq 'POST';
@@ -204,9 +209,19 @@ sub bss_source {
 		my $content = <$fh>;
 		close $fh;
 
+		# Extract layout name from YAML front matter
+		my $layout = '';
+		if ($content =~ /\A---(.+?)---/s) {
+			my $yaml_block = $1;
+			if ($yaml_block =~ /^\s*layout\s*:\s*(.+?)\s*$/m) {
+				$layout = $1;
+			}
+		}
+
 		my $json = JSON::PP->new->utf8->encode({
 			path    => $source_path,
 			content => $content,
+			layout  => $layout,
 		});
 
 		_send_response($c, 'application/json', $json, $accept_gzip,
@@ -216,23 +231,73 @@ sub bss_source {
 	}
 }
 
-# POST /__bss/save?url=/path — write markdown source back to disk
+# GET /__bss/template?name=layout_name — return template source for editing
+sub bss_template {
+	my ($c, $request_url, $accept_gzip) = @_;
+
+	my ($name) = $request_url =~ /[?&]name=([^&]*)/;
+	$name //= '';
+	$name =~ s/%([0-9A-Fa-f]{2})/chr(hex($1))/ge;
+
+	unless ($name && $TT_DIR) {
+		return _send_json($c, 404, '{"error":"template not found"}');
+	}
+
+	my $template_path = _find_template($name);
+	unless ($template_path) {
+		return _send_json($c, 404, '{"error":"template not found"}');
+	}
+
+	if (open my $fh, '<:encoding(UTF-8)', $template_path) {
+		local $/;
+		my $content = <$fh>;
+		close $fh;
+
+		my $json = JSON::PP->new->utf8->encode({
+			path    => $template_path,
+			content => $content,
+		});
+
+		_send_response($c, 'application/json', $json, $accept_gzip,
+			'Cache-Control' => 'no-cache, no-store');
+	} else {
+		_send_json($c, 500, '{"error":"cannot read template"}');
+	}
+}
+
+# POST /__bss/save?url=/path — write source/template back to disk
+# For templates, pass type=template&path=/full/path
 sub bss_save {
 	my ($c, $request_url, $body) = @_;
 
-	my ($target) = $request_url =~ /[?&]url=([^&]*)/;
-	$target //= '/';
-	$target =~ s/%([0-9A-Fa-f]{2})/chr(hex($1))/ge;
+	my ($save_type) = $request_url =~ /[?&]type=([^&]*)/;
+	$save_type //= 'source';
 
-	my $source_path = _url_to_source($target);
+	my $source_path;
+	my $guard_dir;
+
+	if ($save_type eq 'template') {
+		my ($tpath) = $request_url =~ /[?&]path=([^&]*)/;
+		$tpath //= '';
+		$tpath =~ s/%([0-9A-Fa-f]{2})/chr(hex($1))/ge;
+		$source_path = $tpath;
+		$guard_dir = $TT_DIR;
+	} else {
+		my ($target) = $request_url =~ /[?&]url=([^&]*)/;
+		$target //= '/';
+		$target =~ s/%([0-9A-Fa-f]{2})/chr(hex($1))/ge;
+		$source_path = _url_to_source($target);
+		$guard_dir = $SRC_DIR;
+	}
+
 	unless ($source_path) {
 		return _send_json($c, 404, '{"error":"source not found"}');
 	}
 
-	# Security: resolve symlinks and verify the path is within SRC_DIR
+	# Security: resolve symlinks and verify the path is within the guard dir
 	my $abs_path = realpath($source_path);
-	my $abs_src  = realpath($SRC_DIR);
-	unless ($abs_path && $abs_src && $abs_path =~ /^\Q$abs_src\E/) {
+	my $abs_guard = realpath($guard_dir);
+	unless ($abs_path && $abs_guard && $abs_path =~ /^\Q$abs_guard\E/) {
 		return _send_json($c, 403, '{"error":"forbidden"}');
 	}
 
@@ -290,6 +355,25 @@ sub _url_to_source {
 	return undef;
 }
 
+# Find a template file by layout name inside TT_DIR
+sub _find_template {
+	my ($name) = @_;
+	return undef unless $name && $TT_DIR && -d $TT_DIR;
+
+	my @exts = qw(.tmpl .template .html .tt .tt2);
+
+	for my $ext (@exts) {
+		my $path = catfile($TT_DIR, $name . $ext);
+		return $path if -f $path;
+	}
+
+	# Try bare name (exact filename)
+	my $bare = catfile($TT_DIR, $name);
+	return $bare if -f $bare;
+
+	return undef;
+}
+
 sub serve_html_with_reload {
 	my ($c, $fh, $url, $accept_gzip) = @_;
 
@@ -321,39 +405,34 @@ html {
 html.bss-fade-out {
     opacity: 0 !important;
 }
+/* --- Stats overlay: flat B&W A4 paper style --- */
 #bss-dev-stats {
     position: fixed;
     bottom: 12px;
     right: 12px;
-    background: #1e1e2e;
-    color: #cdd6f4;
-    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    background: #fff;
+    color: #000;
+    font-family: 'Courier New', Courier, monospace;
     font-size: 11px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid #45475a;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    padding: 10px 14px;
+    border: 1px solid #000;
     z-index: 99999;
     line-height: 1.7;
     cursor: pointer;
-    transition: all 0.2s ease;
     max-width: 220px;
     user-select: none;
 }
-#bss-dev-stats:hover {
-    border-color: #89b4fa;
-    box-shadow: 0 4px 16px rgba(137, 180, 250, 0.15);
-}
 #bss-dev-stats .bss-header {
-    font-weight: 600;
-    color: #89b4fa;
+    font-weight: 700;
     font-size: 12px;
+    color: #000;
+    border-bottom: 1px solid #000;
+    padding-bottom: 4px;
+    margin-bottom: 4px;
 }
 #bss-dev-stats .bss-detail {
     display: none;
-    margin-top: 6px;
-    padding-top: 6px;
-    border-top: 1px solid #313244;
+    margin-top: 4px;
 }
 #bss-dev-stats.bss-open .bss-detail { display: block; }
 #bss-dev-stats .bss-row {
@@ -361,34 +440,33 @@ html.bss-fade-out {
     justify-content: space-between;
     gap: 12px;
 }
-#bss-dev-stats .bss-label { color: #a6adc8; }
-#bss-dev-stats .bss-value { color: #a6e3a1; font-weight: 500; }
+#bss-dev-stats .bss-label { color: #555; }
+#bss-dev-stats .bss-value { color: #000; font-weight: 600; }
 #bss-dev-stats .bss-dot {
     display: inline-block;
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #a6e3a1;
+    background: #000;
     margin-right: 6px;
     animation: bss-pulse 2s infinite;
 }
 \@keyframes bss-pulse {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
+    50% { opacity: 0.3; }
 }
-/* Editor panel */
+/* --- Editor panel: flat B&W A4 paper style --- */
 #bss-editor {
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    background: #1e1e2e;
-    color: #cdd6f4;
-    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    background: #fff;
+    color: #000;
+    font-family: 'Courier New', Courier, monospace;
     font-size: 12px;
     z-index: 99998;
-    border-top: 2px solid #45475a;
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+    border-top: 2px solid #000;
     transition: transform 0.25s ease;
     transform: translateY(100%);
 }
@@ -400,62 +478,81 @@ html.bss-fade-out {
     align-items: center;
     justify-content: space-between;
     padding: 6px 14px;
-    background: #181825;
-    border-bottom: 1px solid #313244;
-    cursor: pointer;
+    background: #f5f5f5;
+    border-bottom: 1px solid #000;
     user-select: none;
 }
 #bss-editor .bss-editor-bar .bss-editor-title {
-    color: #89b4fa;
-    font-weight: 600;
+    color: #000;
+    font-weight: 700;
 }
 #bss-editor .bss-editor-bar .bss-editor-path {
-    color: #a6adc8;
+    color: #555;
     font-size: 11px;
     margin-left: 12px;
+}
+#bss-editor .bss-editor-tabs {
+    display: flex;
+    gap: 0;
+    margin-left: 16px;
+}
+#bss-editor .bss-editor-tabs button {
+    background: #fff;
+    color: #000;
+    border: 1px solid #000;
+    border-bottom: none;
+    padding: 3px 14px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    font-weight: 400;
+}
+#bss-editor .bss-editor-tabs button.bss-tab-active {
+    background: #000;
+    color: #fff;
+    font-weight: 700;
 }
 #bss-editor .bss-editor-bar .bss-editor-actions {
     display: flex;
     gap: 8px;
     align-items: center;
 }
-#bss-editor .bss-editor-bar button {
-    background: #313244;
-    color: #cdd6f4;
-    border: 1px solid #45475a;
-    border-radius: 4px;
+#bss-editor .bss-editor-bar button.bss-action-btn {
+    background: #fff;
+    color: #000;
+    border: 1px solid #000;
     padding: 3px 12px;
     font-family: inherit;
     font-size: 11px;
     cursor: pointer;
-    transition: all 0.15s ease;
 }
-#bss-editor .bss-editor-bar button:hover {
-    background: #45475a;
-    border-color: #89b4fa;
+#bss-editor .bss-editor-bar button.bss-action-btn:hover {
+    background: #000;
+    color: #fff;
 }
 #bss-editor .bss-editor-bar button.bss-save-btn {
-    background: #a6e3a1;
-    color: #1e1e2e;
-    border-color: #a6e3a1;
-    font-weight: 600;
+    background: #000;
+    color: #fff;
+    border: 1px solid #000;
+    font-weight: 700;
 }
 #bss-editor .bss-editor-bar button.bss-save-btn:hover {
-    background: #94e2d5;
-    border-color: #94e2d5;
+    background: #333;
 }
 #bss-editor .bss-editor-status {
     font-size: 11px;
     margin-left: 8px;
+    color: #555;
 }
 #bss-editor textarea {
     width: 100%;
     height: 260px;
-    background: #11111b;
-    color: #cdd6f4;
+    background: #fff;
+    color: #000;
     border: none;
+    border-top: 1px solid #ccc;
     padding: 12px 14px;
-    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-family: 'Courier New', Courier, monospace;
     font-size: 13px;
     line-height: 1.6;
     resize: vertical;
@@ -464,30 +561,27 @@ html.bss-fade-out {
     tab-size: 4;
 }
 #bss-editor textarea:focus {
-    box-shadow: inset 0 0 0 1px #89b4fa;
+    background: #fffff8;
 }
-/* Toggle button (always visible) */
+/* Toggle button: flat B&W */
 #bss-editor-toggle {
     position: fixed;
     bottom: 12px;
     right: 240px;
-    background: #1e1e2e;
-    color: #89b4fa;
-    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    background: #fff;
+    color: #000;
+    font-family: 'Courier New', Courier, monospace;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
     padding: 7px 14px;
-    border-radius: 8px;
-    border: 1px solid #45475a;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    border: 1px solid #000;
     z-index: 99999;
     cursor: pointer;
-    transition: all 0.2s ease;
     user-select: none;
 }
 #bss-editor-toggle:hover {
-    border-color: #89b4fa;
-    box-shadow: 0 4px 16px rgba(137, 180, 250, 0.15);
+    background: #000;
+    color: #fff;
 }
 </style>
 <div id="bss-dev-stats" onclick="this.classList.toggle('bss-open')">
@@ -500,17 +594,21 @@ html.bss-fade-out {
         <div class="bss-row"><span class="bss-label">Built at</span><span class="bss-value" id="bss-built-at">&mdash;</span></div>
     </div>
 </div>
-<div id="bss-editor-toggle" onclick="bssToggleEditor()">\\u270f\\ufe0f Edit</div>
+<div id="bss-editor-toggle" onclick="bssToggleEditor()">\x{270f}\x{fe0f} Edit</div>
 <div id="bss-editor">
-    <div class="bss-editor-bar" onclick="bssToggleEditor()">
-        <div>
-            <span class="bss-editor-title">\\u270f\\ufe0f Editor</span>
+    <div class="bss-editor-bar">
+        <div style="display:flex;align-items:center">
+            <span class="bss-editor-title">\x{270f}\x{fe0f} Editor</span>
             <span class="bss-editor-path" id="bss-editor-path"></span>
+            <div class="bss-editor-tabs" id="bss-editor-tabs">
+                <button class="bss-tab-active" id="bss-tab-source" onclick="event.stopPropagation();bssSwitchTab('source')">Source</button>
+                <button id="bss-tab-template" onclick="event.stopPropagation();bssSwitchTab('template')">Template</button>
+            </div>
         </div>
         <div class="bss-editor-actions" onclick="event.stopPropagation()">
             <span class="bss-editor-status" id="bss-editor-status"></span>
-            <button class="bss-save-btn" onclick="bssSaveSource()">Save</button>
-            <button onclick="bssToggleEditor()">\\u2715 Close</button>
+            <button class="bss-save-btn" onclick="bssSave()">Save</button>
+            <button class="bss-action-btn" onclick="bssToggleEditor()">\x{2715} Close</button>
         </div>
     </div>
     <textarea id="bss-editor-textarea" onclick="event.stopPropagation()" spellcheck="false"></textarea>
@@ -520,6 +618,10 @@ html.bss-fade-out {
     var lastBuildId = null;
     var currentUrl = '$url';
     var editorLoaded = false;
+    var activeTab = 'source';
+    var sourceData = null;
+    var templateData = null;
+    var templateLoaded = false;
 
     function formatBytes(bytes) {
         if (bytes < 1024) return bytes + ' B';
@@ -555,46 +657,114 @@ html.bss-fade-out {
     setInterval(poll, 1000);
     poll();
 
+    /* Restore editor state from localStorage */
+    var wasOpen = false;
+    try { wasOpen = localStorage.getItem('bss-editor-open') === '1'; } catch(e) {}
+    if (wasOpen) {
+        /* Defer so DOM is ready */
+        setTimeout(function() { bssToggleEditor(); }, 0);
+    }
+
     /* Editor functions */
     window.bssToggleEditor = function() {
         var editor = document.getElementById('bss-editor');
         var toggle = document.getElementById('bss-editor-toggle');
         var isOpen = editor.classList.toggle('bss-editor-open');
         toggle.style.display = isOpen ? 'none' : 'block';
+        try { localStorage.setItem('bss-editor-open', isOpen ? '1' : '0'); } catch(e) {}
         if (isOpen && !editorLoaded) {
             bssLoadSource();
+        }
+    };
+
+    window.bssSwitchTab = function(tab) {
+        activeTab = tab;
+        document.getElementById('bss-tab-source').className = tab === 'source' ? 'bss-tab-active' : '';
+        document.getElementById('bss-tab-template').className = tab === 'template' ? 'bss-tab-active' : '';
+        var ta = document.getElementById('bss-editor-textarea');
+        var pathEl = document.getElementById('bss-editor-path');
+        if (tab === 'source' && sourceData) {
+            ta.value = sourceData.content;
+            pathEl.textContent = sourceData.path;
+        } else if (tab === 'template') {
+            if (templateData) {
+                ta.value = templateData.content;
+                pathEl.textContent = templateData.path;
+            } else if (sourceData && sourceData.layout) {
+                bssLoadTemplate(sourceData.layout);
+            } else {
+                ta.value = '(no template found for this page)';
+                pathEl.textContent = '';
+            }
         }
     };
 
     window.bssLoadSource = function() {
         var status = document.getElementById('bss-editor-status');
         status.textContent = 'Loading...';
-        status.style.color = '#a6adc8';
+        status.style.color = '#555';
         fetch('/__bss/source?url=' + encodeURIComponent(currentUrl))
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (data.error) {
                     status.textContent = data.error;
-                    status.style.color = '#f38ba8';
+                    status.style.color = '#c00';
                     return;
                 }
-                document.getElementById('bss-editor-textarea').value = data.content;
-                document.getElementById('bss-editor-path').textContent = data.path;
+                sourceData = data;
+                if (activeTab === 'source') {
+                    document.getElementById('bss-editor-textarea').value = data.content;
+                    document.getElementById('bss-editor-path').textContent = data.path;
+                }
                 status.textContent = '';
                 editorLoaded = true;
             })
             .catch(function(e) {
                 status.textContent = 'Failed to load';
-                status.style.color = '#f38ba8';
+                status.style.color = '#c00';
             });
     };
 
-    window.bssSaveSource = function() {
+    window.bssLoadTemplate = function(layoutName) {
+        var status = document.getElementById('bss-editor-status');
+        status.textContent = 'Loading template...';
+        status.style.color = '#555';
+        fetch('/__bss/template?name=' + encodeURIComponent(layoutName))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) {
+                    status.textContent = data.error;
+                    status.style.color = '#c00';
+                    return;
+                }
+                templateData = data;
+                templateLoaded = true;
+                if (activeTab === 'template') {
+                    document.getElementById('bss-editor-textarea').value = data.content;
+                    document.getElementById('bss-editor-path').textContent = data.path;
+                }
+                status.textContent = '';
+            })
+            .catch(function(e) {
+                status.textContent = 'Failed to load template';
+                status.style.color = '#c00';
+            });
+    };
+
+    window.bssSave = function() {
         var status = document.getElementById('bss-editor-status');
         var content = document.getElementById('bss-editor-textarea').value;
         status.textContent = 'Saving...';
-        status.style.color = '#f9e2af';
-        fetch('/__bss/save?url=' + encodeURIComponent(currentUrl), {
+        status.style.color = '#555';
+        var saveUrl;
+        if (activeTab === 'template' && templateData) {
+            saveUrl = '/__bss/save?type=template&path=' + encodeURIComponent(templateData.path);
+            templateData.content = content;
+        } else {
+            saveUrl = '/__bss/save?url=' + encodeURIComponent(currentUrl);
+            if (sourceData) sourceData.content = content;
+        }
+        fetch(saveUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain' },
             body: content
@@ -603,16 +773,16 @@ html.bss-fade-out {
         .then(function(data) {
             if (data.ok) {
                 status.textContent = 'Saved!';
-                status.style.color = '#a6e3a1';
+                status.style.color = '#080';
                 setTimeout(function() { status.textContent = ''; }, 2000);
             } else {
                 status.textContent = data.error || 'Save failed';
-                status.style.color = '#f38ba8';
+                status.style.color = '#c00';
             }
         })
         .catch(function() {
             status.textContent = 'Save failed';
-            status.style.color = '#f38ba8';
+            status.style.color = '#c00';
         });
     };
 
@@ -629,7 +799,7 @@ html.bss-fade-out {
         /* Ctrl/Cmd+S to save */
         if ((e.ctrlKey || e.metaKey) && e.key === 's') {
             e.preventDefault();
-            bssSaveSource();
+            bssSave();
         }
     });
 })();

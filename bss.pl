@@ -131,7 +131,7 @@ sub do_build {
     say "Site created in $config{DEST}!";
 
     if ($opts{server}) {
-        set_dev_mode(catfile($config{DEST}, '__bss_meta.json'), $config{SRC});
+        set_dev_mode(catfile($config{DEST}, '__bss_meta.json'), $config{SRC}, $config{TT_DIR});
         fork_watcher(%config);
         say "Watching $config{SRC} for changes...";
         server(%config);
