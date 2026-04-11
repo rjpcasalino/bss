@@ -133,6 +133,7 @@ sub do_build {
     if ($opts{server}) {
         set_dev_mode(catfile($config{DEST}, '__bss_meta.json'));
         fork_watcher(%config);
+        say "Watching $config{SRC} for changes...";
         server(%config);
     }
 }
@@ -300,24 +301,22 @@ sub fork_watcher {
     defined( my $pid = fork() ) or die "Can't fork watcher: $!";
 
     if ( $pid == 0 ) {
-        # Child process: watch for file changes and rebuild
+        # Child process: watch for file changes and rebuild.
+        # Redirect stdout/stderr to /dev/null so rebuild output
+        # (including rsync) never leaks to the parent terminal or
+        # other terminal windows.
+        open STDOUT, '>', '/dev/null' or die "Can't redirect STDOUT: $!";
+        open STDERR, '>', '/dev/null' or die "Can't redirect STDERR: $!";
+
         my %last_mtimes =
           scan_src_mtimes( $config{SRC}, $config{TT_DIR} );
-        say "Watching $config{SRC} for changes...";
 
         while ( !$quit ) {
             sleep 1;
             my %current =
               scan_src_mtimes( $config{SRC}, $config{TT_DIR} );
             if ( has_changes( \%last_mtimes, \%current ) ) {
-                say "Change detected, rebuilding...";
                 eval { run_build(%config) };
-                if ($@) {
-                    warn "Rebuild failed: $@\n";
-                }
-                else {
-                    say "Rebuild complete!";
-                }
                 %last_mtimes =
                   scan_src_mtimes( $config{SRC}, $config{TT_DIR} );
             }
