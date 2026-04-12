@@ -422,12 +422,6 @@ sub _dev_snippet {
 <!-- bss dev mode: live reload + stats + editor -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E\x{270f}\x{fe0f}%3C/text%3E%3C/svg%3E">
 <style>
-html {
-    transition: opacity 0.15s ease;
-}
-html.bss-fade-out {
-    opacity: 0 !important;
-}
 /* --- Stats overlay: flat B&W A4 paper style --- */
 #bss-dev-stats {
     position: fixed;
@@ -687,9 +681,74 @@ html.bss-fade-out {
         el('bss-build-time').textContent = data.build_duration_ms + 'ms';
         el('bss-built-at').textContent = data.build_time;
     }
-    function smoothReload() {
-        document.documentElement.classList.add('bss-fade-out');
-        setTimeout(function() { location.reload(); }, 180);
+    /* In-place content swap: fetch the rebuilt page and swap the body
+       content without a full reload, preserving scroll position, editor
+       state, and the dev overlay. Falls back to location.reload() on
+       errors or if the page structure can't be parsed. */
+    function swapContent() {
+        var scrollX = window.scrollX;
+        var scrollY = window.scrollY;
+        fetch(currentUrl, { cache: 'no-store' })
+            .then(function(r) { return r.text(); })
+            .then(function(html) {
+                /* Strip the injected bss dev snippet from the fetched HTML
+                   so we don't duplicate our own overlay/editor/script.
+                   The snippet always starts with this comment marker. */
+                var marker = '<!-- bss dev mode: live reload + stats + editor -->';
+                var markerIdx = html.indexOf(marker);
+                if (markerIdx !== -1) {
+                    html = html.substring(0, markerIdx) + '</body></html>';
+                }
+                var parser = new DOMParser();
+                var doc = parser.parseFromString(html, 'text/html');
+                if (!doc || !doc.body) { location.reload(); return; }
+                /* Collect bss dev elements currently in the page to preserve */
+                var bssIds = ['bss-dev-stats','bss-editor-toggle','bss-editor'];
+                var preserved = [];
+                bssIds.forEach(function(id) {
+                    var el = document.getElementById(id);
+                    if (el) preserved.push(el);
+                });
+                /* Also preserve bss <style> and <link> (favicon) injected in body.
+                   Walk backwards from the first bss div to find them. */
+                var firstBss = preserved[0];
+                if (firstBss) {
+                    var prev = firstBss.previousElementSibling;
+                    while (prev && (prev.tagName === 'STYLE' || prev.tagName === 'LINK')) {
+                        preserved.unshift(prev);
+                        prev = prev.previousElementSibling;
+                    }
+                }
+                /* Swap <title> if present */
+                var newTitle = doc.querySelector('title');
+                if (newTitle) document.title = newTitle.textContent;
+                /* Detach preserved bss elements before replacing body */
+                preserved.forEach(function(el) {
+                    if (el.parentNode) el.parentNode.removeChild(el);
+                });
+                /* Replace body content with the new (snippet-free) content */
+                document.body.innerHTML = doc.body.innerHTML;
+                /* Re-attach preserved bss elements */
+                preserved.forEach(function(el) { document.body.appendChild(el); });
+                /* Update head stylesheets from the new page */
+                var oldStyles = Array.from(document.head.querySelectorAll('style:not([data-bss]), link[rel=\"stylesheet\"]:not([data-bss])'));
+                var newStyles = Array.from(doc.head.querySelectorAll('style, link[rel=\"stylesheet\"]'));
+                oldStyles.forEach(function(s) { s.parentNode.removeChild(s); });
+                newStyles.forEach(function(s) { document.head.appendChild(document.adoptNode(s)); });
+                /* Restore scroll position */
+                window.scrollTo(scrollX, scrollY);
+                /* Reload editor source if it's open */
+                if (editorLoaded) {
+                    bssLoadSource();
+                    if (templateLoaded && sourceData && sourceData.layout) {
+                        bssLoadTemplate(sourceData.layout);
+                    }
+                }
+            })
+            .catch(function() {
+                /* Fallback to full reload on any error */
+                location.reload();
+            });
     }
     function poll() {
         fetch('/__bss/poll')
@@ -698,8 +757,8 @@ html.bss-fade-out {
                 if (lastBuildId === null) {
                     lastBuildId = data.build_id;
                 } else if (data.build_id !== lastBuildId) {
-                    smoothReload();
-                    return;
+                    lastBuildId = data.build_id;
+                    swapContent();
                 }
                 updateStats(data);
             })
