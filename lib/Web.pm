@@ -846,84 +846,73 @@ html.bss-fade-out {
     (function() {
         var handle = document.getElementById('bss-drag-handle');
         var editor = document.getElementById('bss-editor');
-        var defaultH = 310;
+        var defaultH = parseInt(getComputedStyle(editor).height, 10) || 310;
         var dragging = false;
         var startY = 0;
         var startH = 0;
 
-        handle.addEventListener('mousedown', function(e) {
-            e.preventDefault();
-            dragging = true;
-            startY = e.clientY;
-            startH = editor.offsetHeight;
-            editor.classList.add('bss-dragging');
-            editor.classList.remove('bss-editor-full');
-        });
-
-        document.addEventListener('mousemove', function(e) {
-            if (!dragging) return;
-            var newH = startH + (startY - e.clientY);
-            var maxH = window.innerHeight;
-            if (newH < 100) newH = 100;
-            if (newH > maxH) newH = maxH;
-            editor.style.height = newH + 'px';
-        });
-
-        document.addEventListener('mouseup', function() {
-            if (!dragging) return;
+        function snapAfterDrag() {
             dragging = false;
             editor.classList.remove('bss-dragging');
             var h = editor.offsetHeight;
             var maxH = window.innerHeight;
-            /* Snap to full-screen if dragged above 70% of viewport */
             if (h > maxH * 0.7) {
                 editor.style.height = '';
                 editor.classList.add('bss-editor-full');
                 try { localStorage.setItem('bss-editor-full', '1'); } catch(e) {}
             } else if (h < defaultH * 1.3) {
-                /* Snap back to default if close to it */
                 editor.style.height = defaultH + 'px';
                 try { localStorage.setItem('bss-editor-full', '0'); } catch(e) {}
             } else {
                 try { localStorage.setItem('bss-editor-full', '0'); } catch(e) {}
             }
+        }
+
+        function clampHeight(deltaY) {
+            var newH = startH + deltaY;
+            var maxH = window.innerHeight;
+            if (newH < 100) newH = 100;
+            if (newH > maxH) newH = maxH;
+            editor.style.height = newH + 'px';
+        }
+
+        function startDrag(y) {
+            dragging = true;
+            startY = y;
+            startH = editor.offsetHeight;
+            editor.classList.add('bss-dragging');
+            editor.classList.remove('bss-editor-full');
+        }
+
+        handle.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            startDrag(e.clientY);
+        });
+
+        document.addEventListener('mousemove', function(e) {
+            if (!dragging) return;
+            clampHeight(startY - e.clientY);
+        });
+
+        document.addEventListener('mouseup', function() {
+            if (!dragging) return;
+            snapAfterDrag();
         });
 
         /* Touch support for mobile */
         handle.addEventListener('touchstart', function(e) {
             e.preventDefault();
-            dragging = true;
-            startY = e.touches[0].clientY;
-            startH = editor.offsetHeight;
-            editor.classList.add('bss-dragging');
-            editor.classList.remove('bss-editor-full');
+            startDrag(e.touches[0].clientY);
         }, {passive: false});
 
         document.addEventListener('touchmove', function(e) {
             if (!dragging) return;
-            var newH = startH + (startY - e.touches[0].clientY);
-            var maxH = window.innerHeight;
-            if (newH < 100) newH = 100;
-            if (newH > maxH) newH = maxH;
-            editor.style.height = newH + 'px';
+            clampHeight(startY - e.touches[0].clientY);
         });
 
         document.addEventListener('touchend', function() {
             if (!dragging) return;
-            dragging = false;
-            editor.classList.remove('bss-dragging');
-            var h = editor.offsetHeight;
-            var maxH = window.innerHeight;
-            if (h > maxH * 0.7) {
-                editor.style.height = '';
-                editor.classList.add('bss-editor-full');
-                try { localStorage.setItem('bss-editor-full', '1'); } catch(e) {}
-            } else if (h < defaultH * 1.3) {
-                editor.style.height = defaultH + 'px';
-                try { localStorage.setItem('bss-editor-full', '0'); } catch(e) {}
-            } else {
-                try { localStorage.setItem('bss-editor-full', '0'); } catch(e) {}
-            }
+            snapAfterDrag();
         });
 
         /* Restore full-screen state from localStorage */
