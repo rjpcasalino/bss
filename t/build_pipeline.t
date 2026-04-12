@@ -96,6 +96,7 @@ subtest 'Collection scanning' => sub {
     my $EDITOR_JUNK_RE = qr/(?:^\..*\.sw[a-p]$|~$|^4913$|^\#.*\#$)/;
     my $MD_EXT_RE = qr/\.[mM](ark)?[dD](own)?$/;
 
+    my %seen;
     my @collected;
     require File::Find;
     File::Find::find(
@@ -104,7 +105,7 @@ subtest 'Collection scanning' => sub {
             return if $_ =~ $EDITOR_JUNK_RE;
             return unless $_ =~ $MD_EXT_RE;
             (my $name = $_) =~ s/$MD_EXT_RE/\.html/;
-            push @collected, $name;
+            push @collected, $name unless $seen{$name}++;
         },
         $posts_dir
     );
@@ -114,6 +115,39 @@ subtest 'Collection scanning' => sub {
     ok((grep { $_ eq 'world.html' } @collected), 'world.md collected as world.html');
     ok(!(grep { /swp|backup/ } @collected), 'No junk files in collection');
     is(scalar(grep { $_ eq 'hello.html' } @collected), 1, 'No duplicates from leftover .html files');
+};
+
+# --- Test collection dedup with multiple markdown extensions ---
+subtest 'Collection dedup with multiple extensions' => sub {
+    my $src = tempdir(CLEANUP => 1);
+    my $posts_dir = catdir($src, 'posts');
+    make_path($posts_dir);
+
+    # Create files with different markdown extensions that resolve to same .html
+    _write_file(catfile($posts_dir, 'hello.md'), "---\ntitle: Hello\n---\nHello\n");
+    _write_file(catfile($posts_dir, 'hello.markdown'), "---\ntitle: Hello\n---\nHello dupe\n");
+    _write_file(catfile($posts_dir, 'world.md'), "---\ntitle: World\n---\nWorld\n");
+
+    my $EDITOR_JUNK_RE = qr/(?:^\..*\.sw[a-p]$|~$|^4913$|^\#.*\#$)/;
+    my $MD_EXT_RE = qr/\.[mM](ark)?[dD](own)?$/;
+
+    my %seen;
+    my @collected;
+    require File::Find;
+    File::Find::find(
+        sub {
+            return unless -f $_;
+            return if $_ =~ $EDITOR_JUNK_RE;
+            return unless $_ =~ $MD_EXT_RE;
+            (my $name = $_) =~ s/$MD_EXT_RE/\.html/;
+            push @collected, $name unless $seen{$name}++;
+        },
+        $posts_dir
+    );
+
+    is(scalar @collected, 2, 'Dedup: two unique entries despite three .md files');
+    is(scalar(grep { $_ eq 'hello.html' } @collected), 1, 'hello.html appears exactly once');
+    is(scalar(grep { $_ eq 'world.html' } @collected), 1, 'world.html appears exactly once');
 };
 
 # --- Test build output structure ---

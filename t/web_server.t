@@ -182,6 +182,7 @@ subtest 'Dev snippet injection' => sub {
     like($snippet, qr/bss-editor/, 'Snippet has editor');
     like($snippet, qr/__bss\/poll/, 'Snippet polls for updates');
     like($snippet, qr/swapContent/, 'Snippet has in-place swap function');
+    like($snippet, qr/isSwapping/, 'Snippet has swap guard to prevent overlapping swaps');
     like($snippet, qr/bss-live-toggle/, 'Snippet has Live toggle');
     like($snippet, qr/selectionStart/, 'Snippet preserves cursor position');
     like($snippet, qr/scrollTop/, 'Snippet preserves scroll position');

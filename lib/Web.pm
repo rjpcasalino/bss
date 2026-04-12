@@ -683,6 +683,8 @@ sub _dev_snippet {
     var userIsTyping = false;  /* true while user is actively editing */
     var typingTimer = null;
     var TYPING_COOLDOWN_MS = 3000;  /* how long after last keystroke before reload is allowed */
+    var isSwapping = false;  /* guard: true while swapContent is in progress */
+    var pendingSwap = false; /* true if a swap was requested during an active swap */
 
     function formatBytes(bytes) {
         if (bytes < 1024) return bytes + ' B';
@@ -713,6 +715,8 @@ sub _dev_snippet {
        state, and the dev overlay. Falls back to location.reload() on
        errors or if the page structure can't be parsed. */
     function swapContent() {
+        if (isSwapping) { pendingSwap = true; return; }
+        isSwapping = true;
         var scrollX = window.scrollX;
         var scrollY = window.scrollY;
         fetch(currentUrl, { cache: 'no-store' })
@@ -746,21 +750,31 @@ sub _dev_snippet {
                         prev = prev.previousElementSibling;
                     }
                 }
+                /* Also preserve the <script> tag from the dev snippet (last body child) */
+                var lastChild = document.body.lastElementChild;
+                if (lastChild && lastChild.tagName === 'SCRIPT' && preserved.indexOf(lastChild) === -1) {
+                    preserved.push(lastChild);
+                }
+                /* Build a Set for O(1) lookup during removal */
+                var preservedSet = new Set(preserved);
                 /* Swap <title> if present */
                 var newTitle = doc.querySelector('title');
                 if (newTitle) document.title = newTitle.textContent;
                 /* Remove all non-bss children from body, leaving bss
                    elements in place so the textarea undo stack survives. */
-                Array.from(document.body.childNodes).forEach(function(child) {
-                    if (preserved.indexOf(child) === -1) {
-                        document.body.removeChild(child);
-                    }
-                });
-                /* Insert new page content before the first preserved element */
+                var toRemove = [];
+                var node = document.body.firstChild;
+                while (node) {
+                    if (!preservedSet.has(node)) toRemove.push(node);
+                    node = node.nextSibling;
+                }
+                toRemove.forEach(function(n) { document.body.removeChild(n); });
+                /* Insert new page content before the first preserved element.
+                   Use a while-loop to avoid Array.from issues with adoptNode. */
                 var anchor = preserved.length > 0 ? preserved[0] : null;
-                Array.from(doc.body.childNodes).forEach(function(newChild) {
-                    document.body.insertBefore(document.adoptNode(newChild), anchor);
-                });
+                while (doc.body.firstChild) {
+                    document.body.insertBefore(document.adoptNode(doc.body.firstChild), anchor);
+                }
                 /* Update head stylesheets from the new page */
                 var oldStyles = Array.from(document.head.querySelectorAll('style:not([data-bss]), link[rel=\"stylesheet\"]:not([data-bss])'));
                 var newStyles = Array.from(doc.head.querySelectorAll('style, link[rel=\"stylesheet\"]'));
@@ -788,6 +802,13 @@ sub _dev_snippet {
             .catch(function() {
                 /* Fallback to full reload on any error */
                 location.reload();
+            })
+            .finally(function() {
+                isSwapping = false;
+                if (pendingSwap) {
+                    pendingSwap = false;
+                    swapContent();
+                }
             });
     }
     function poll() {

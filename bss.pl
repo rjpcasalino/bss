@@ -150,16 +150,20 @@ sub run_build {
     my %collections = ();
     for my $dir (@collections) {
         $dir =~ s/^\s+|\s+$//g;    # trim whitespace from collection names
+        next if exists $collections{$dir};    # skip duplicate collection names
+        my %seen;                              # deduplicate entries
         $collections{$dir} = [];
+        my $col_dir = File::Spec->catfile( $manifest{SRC}, $dir );
+        next unless -d $col_dir;
         find(
             sub {
                 return unless -f $_;
                 return if $_ =~ $EDITOR_JUNK_RE;
                 return unless $_ =~ $MD_EXT_RE;
                 ( my $name = $_ ) =~ s/$MD_EXT_RE/\.html/;
-                push @{ $collections{$dir} }, $name;
+                push @{ $collections{$dir} }, $name unless $seen{$name}++;
             },
-            File::Spec->catfile( $manifest{SRC}, $dir )
+            $col_dir
         );
     }
     $manifest{COLLECTIONS} = \%collections if @collections;
