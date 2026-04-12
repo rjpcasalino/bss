@@ -1,0 +1,20 @@
+[% header = "partials/header.tmpl" %]
+[% footer = "partials/footer.tmpl" %]
+[% INCLUDE $header %]
+
+<h2>[% title %]</h2>
+
+[% FOREACH part IN body %]
+    [% part %]
+[% END %]
+
+<h2>Selected Projects</h2>
+<div class="grid">
+[% FOREACH c = collections.projects.sort.reverse %]
+    <div class="card">
+        <h3><a href="projects/[% c %]">[% c.replace('(-|_|\.html|[0-9])', ' ') %]</a></h3>
+    </div>
+[% END %]
+</div>
+
+[% INCLUDE $footer %]
