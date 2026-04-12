@@ -5,7 +5,7 @@ use strict;
 use warnings;
 use Test::More;
 use File::Temp qw(tempdir);
-use File::Spec::Functions qw(catfile);
+use File::Spec::Functions qw(catfile catdir);
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 
@@ -19,7 +19,7 @@ my $tt_dir  = tempdir(CLEANUP => 1);
 # Create source files
 _touch(catfile($src_dir, 'index.md'));
 _touch(catfile($src_dir, 'about.md'));
-mkdir catfile($src_dir, 'posts') or die "Cannot mkdir posts: $!";
+mkdir catdir($src_dir, 'posts') or die "Cannot mkdir posts: $!";
 _touch(catfile($src_dir, 'posts', 'hello.md'));
 _touch(catfile($src_dir, 'posts', 'index.md'));
 

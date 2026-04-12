@@ -225,7 +225,7 @@ INI
         );
 
         # Rsync
-        open my $ex, '>', catfile($tmp, 'exclude.txt') or die;
+        open my $ex, '>', catfile($tmp, 'exclude.txt') or die "Cannot create exclude.txt: $!";
         print $ex "*.md\ntemplates\n";
         close $ex;
         system('rsync', '-avmh', '--exclude-from=' . catfile($tmp, 'exclude.txt'),

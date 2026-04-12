@@ -348,10 +348,9 @@ sub _url_to_source {
 	my ($url) = @_;
 	return undef unless $SRC_DIR;
 
-	$url =~ s!^/!!;               # strip leading /
 	$url =~ s!\?.*$!!;            # strip query string
 	$url =~ s!/$!/index.html!;    # trailing / → /index.html
-	$url =~ s!^/!!;               # strip leading / again after index insertion
+	$url =~ s!^/+!!;              # strip leading slashes
 	$url = 'index.html' if $url eq '';
 
 	# If the URL includes the SRC directory name as a prefix, strip it
