@@ -709,12 +709,12 @@ sub _dev_snippet {
                     var el = document.getElementById(id);
                     if (el) preserved.push(el);
                 });
-                /* Also preserve bss <style> and <link> (favicon) injected in body.
+                /* Also preserve bss <style> and <link rel=icon> (favicon) injected in body.
                    Walk backwards from the first bss div to find them. */
                 var firstBss = preserved[0];
                 if (firstBss) {
                     var prev = firstBss.previousElementSibling;
-                    while (prev && (prev.tagName === 'STYLE' || prev.tagName === 'LINK')) {
+                    while (prev && (prev.tagName === 'STYLE' || (prev.tagName === 'LINK' && prev.getAttribute('rel') === 'icon'))) {
                         preserved.unshift(prev);
                         prev = prev.previousElementSibling;
                     }
