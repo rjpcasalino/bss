@@ -963,10 +963,9 @@ sub _dev_snippet {
     ta.addEventListener('keydown', function(e) {
         if (e.key === 'Tab') {
             e.preventDefault();
-            var start = this.selectionStart;
-            var end = this.selectionEnd;
-            this.value = this.value.substring(0, start) + '\\t' + this.value.substring(end);
-            this.selectionStart = this.selectionEnd = start + 1;
+            /* Use insertText so the browser records this on the undo
+               stack and Ctrl+Z / Cmd+Z keeps working. */
+            document.execCommand('insertText', false, '\\t');
         }
         /* Ctrl/Cmd+S to save */
         if ((e.ctrlKey || e.metaKey) && e.key === 's') {

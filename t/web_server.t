@@ -188,6 +188,7 @@ subtest 'Dev snippet injection' => sub {
     like($snippet, qr/userIsTyping/, 'Snippet has typing guard to prevent focus loss');
     like($snippet, qr/!userIsTyping/, 'Snippet skips source reload while user types');
     like($snippet, qr/\.focus\(\)/, 'Snippet re-focuses textarea after swap');
+    like($snippet, qr/insertText/, 'Tab uses insertText to preserve undo history');
 
     # URL is properly escaped
     my $snippet2 = Web::_dev_snippet("/it's-a-page");
