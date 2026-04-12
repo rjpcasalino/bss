@@ -478,11 +478,37 @@ html.bss-fade-out {
     font-size: 12px;
     z-index: 99998;
     border-top: 2px solid #000;
-    transition: transform 0.25s ease;
+    transition: transform 0.25s ease, height 0.25s ease;
     transform: translateY(100%);
+    height: 310px;
+    display: flex;
+    flex-direction: column;
 }
 #bss-editor.bss-editor-open {
     transform: translateY(0);
+}
+#bss-editor.bss-editor-full {
+    height: 100vh !important;
+}
+#bss-editor.bss-dragging {
+    transition: none;
+    user-select: none;
+}
+#bss-editor .bss-drag-handle {
+    height: 6px;
+    cursor: ns-resize;
+    background: #f5f5f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+#bss-editor .bss-drag-handle::after {
+    content: '';
+    width: 36px;
+    height: 3px;
+    border-top: 1px solid #999;
+    border-bottom: 1px solid #999;
 }
 #bss-editor .bss-editor-bar {
     display: flex;
@@ -557,7 +583,8 @@ html.bss-fade-out {
 }
 #bss-editor textarea {
     width: 100%;
-    height: 260px;
+    flex: 1;
+    min-height: 0;
     background: #fff;
     color: #000;
     border: none;
@@ -566,7 +593,7 @@ html.bss-fade-out {
     font-family: 'Courier New', Courier, monospace;
     font-size: 13px;
     line-height: 1.6;
-    resize: vertical;
+    resize: none;
     outline: none;
     box-sizing: border-box;
     tab-size: 4;
@@ -607,6 +634,7 @@ html.bss-fade-out {
 </div>
 <div id="bss-editor-toggle" onclick="bssToggleEditor()">\x{270f}\x{fe0f} Edit</div>
 <div id="bss-editor">
+    <div class="bss-drag-handle" id="bss-drag-handle"></div>
     <div class="bss-editor-bar">
         <div style="display:flex;align-items:center">
             <span class="bss-editor-title">\x{270f}\x{fe0f} Editor</span>
@@ -813,6 +841,112 @@ html.bss-fade-out {
             bssSave();
         }
     });
+
+    /* Drag-to-resize editor panel */
+    (function() {
+        var handle = document.getElementById('bss-drag-handle');
+        var editor = document.getElementById('bss-editor');
+        var defaultH = 310;
+        var dragging = false;
+        var startY = 0;
+        var startH = 0;
+
+        handle.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            dragging = true;
+            startY = e.clientY;
+            startH = editor.offsetHeight;
+            editor.classList.add('bss-dragging');
+            editor.classList.remove('bss-editor-full');
+        });
+
+        document.addEventListener('mousemove', function(e) {
+            if (!dragging) return;
+            var newH = startH + (startY - e.clientY);
+            var maxH = window.innerHeight;
+            if (newH < 100) newH = 100;
+            if (newH > maxH) newH = maxH;
+            editor.style.height = newH + 'px';
+        });
+
+        document.addEventListener('mouseup', function() {
+            if (!dragging) return;
+            dragging = false;
+            editor.classList.remove('bss-dragging');
+            var h = editor.offsetHeight;
+            var maxH = window.innerHeight;
+            /* Snap to full-screen if dragged above 70% of viewport */
+            if (h > maxH * 0.7) {
+                editor.style.height = '';
+                editor.classList.add('bss-editor-full');
+                try { localStorage.setItem('bss-editor-full', '1'); } catch(e) {}
+            } else if (h < defaultH * 1.3) {
+                /* Snap back to default if close to it */
+                editor.style.height = defaultH + 'px';
+                try { localStorage.setItem('bss-editor-full', '0'); } catch(e) {}
+            } else {
+                try { localStorage.setItem('bss-editor-full', '0'); } catch(e) {}
+            }
+        });
+
+        /* Touch support for mobile */
+        handle.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            dragging = true;
+            startY = e.touches[0].clientY;
+            startH = editor.offsetHeight;
+            editor.classList.add('bss-dragging');
+            editor.classList.remove('bss-editor-full');
+        }, {passive: false});
+
+        document.addEventListener('touchmove', function(e) {
+            if (!dragging) return;
+            var newH = startH + (startY - e.touches[0].clientY);
+            var maxH = window.innerHeight;
+            if (newH < 100) newH = 100;
+            if (newH > maxH) newH = maxH;
+            editor.style.height = newH + 'px';
+        });
+
+        document.addEventListener('touchend', function() {
+            if (!dragging) return;
+            dragging = false;
+            editor.classList.remove('bss-dragging');
+            var h = editor.offsetHeight;
+            var maxH = window.innerHeight;
+            if (h > maxH * 0.7) {
+                editor.style.height = '';
+                editor.classList.add('bss-editor-full');
+                try { localStorage.setItem('bss-editor-full', '1'); } catch(e) {}
+            } else if (h < defaultH * 1.3) {
+                editor.style.height = defaultH + 'px';
+                try { localStorage.setItem('bss-editor-full', '0'); } catch(e) {}
+            } else {
+                try { localStorage.setItem('bss-editor-full', '0'); } catch(e) {}
+            }
+        });
+
+        /* Restore full-screen state from localStorage */
+        try {
+            if (localStorage.getItem('bss-editor-full') === '1') {
+                editor.classList.add('bss-editor-full');
+            }
+        } catch(e) {}
+
+        /* Double-click handle to toggle full-screen / default */
+        handle.addEventListener('dblclick', function(e) {
+            e.preventDefault();
+            if (editor.classList.contains('bss-editor-full')) {
+                editor.classList.remove('bss-editor-full');
+                editor.style.height = defaultH + 'px';
+                try { localStorage.setItem('bss-editor-full', '0'); } catch(e2) {}
+            } else {
+                editor.style.height = '';
+                editor.classList.add('bss-editor-full');
+                try { localStorage.setItem('bss-editor-full', '1'); } catch(e2) {}
+            }
+        });
+    })();
 })();
 </script>
 END_SNIPPET
