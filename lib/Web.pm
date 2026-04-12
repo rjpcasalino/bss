@@ -762,13 +762,12 @@ sub _dev_snippet {
                 if (newTitle) document.title = newTitle.textContent;
                 /* Remove all non-bss children from body, leaving bss
                    elements in place so the textarea undo stack survives. */
-                var toRemove = [];
                 var node = document.body.firstChild;
                 while (node) {
-                    if (!preservedSet.has(node)) toRemove.push(node);
-                    node = node.nextSibling;
+                    var next = node.nextSibling;
+                    if (!preservedSet.has(node)) document.body.removeChild(node);
+                    node = next;
                 }
-                toRemove.forEach(function(n) { document.body.removeChild(n); });
                 /* Insert new page content before the first preserved element.
                    Use a while-loop to avoid Array.from issues with adoptNode. */
                 var anchor = preserved.length > 0 ? preserved[0] : null;
