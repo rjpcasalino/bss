@@ -195,7 +195,7 @@ sub run_build {
     $info_flags = "ALL" if $opts{verbose};
 
     my $rsync_exit = system "rsync", "-avmh", "--exclude-from=exclude.txt",
-      "--info=$info_flags", $config{SRC},
+      "--info=$info_flags", "$config{SRC}/",
       $config{DEST};
     warn "rsync exited with status $rsync_exit\n" if $rsync_exit != 0;
 
