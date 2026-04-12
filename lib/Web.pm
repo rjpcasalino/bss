@@ -682,6 +682,7 @@ sub _dev_snippet {
     var templateLoaded = false;
     var userIsTyping = false;  /* true while user is actively editing */
     var typingTimer = null;
+    var TYPING_COOLDOWN_MS = 3000;  /* how long after last keystroke before reload is allowed */
 
     function formatBytes(bytes) {
         if (bytes < 1024) return bytes + ' B';
@@ -949,7 +950,7 @@ sub _dev_snippet {
            won't overwrite their work or steal focus. */
         userIsTyping = true;
         if (typingTimer) clearTimeout(typingTimer);
-        typingTimer = setTimeout(function() { userIsTyping = false; }, 3000);
+        typingTimer = setTimeout(function() { userIsTyping = false; }, TYPING_COOLDOWN_MS);
 
         if (!liveMode) return;
         if (liveTimer) clearTimeout(liveTimer);
