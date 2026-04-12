@@ -54,7 +54,7 @@ my $SELF   = catfile( $FindBin::Bin, $script );
 
 my ($cmd)    = @ARGV;
 my %opts     = ( server => '', verbose => '', help => '');
-my $manifest = "manifest.ini";
+my $manifest_ini = "manifest.ini";
 my $quit     = 0;
 my $MD_EXT_RE = qr/\.[mM](ark)?[dD](own)?$/;
 my $build_id  = 0;
@@ -84,83 +84,85 @@ do_build();
 
 sub do_build {
 
-    print "bss: No manifest.ini found!" and exit unless -e $manifest;
-    $manifest = Config::IniFiles->new( -file => "manifest.ini" );
+    print "bss: No manifest.ini found!" and exit unless -e $manifest_ini;
+    my $ini = Config::IniFiles->new( -file => "manifest.ini" );
 
-    # Main config (gets passed around...)
-    my %config = (
+    # Parsed manifest (gets passed around...)
+    my %manifest = (
         TT_DIR =>
-          realpath( $manifest->val( "build", "templates_dir" ) // "templates" ),
-        SRC => $manifest->val( "build", "src" )
+          realpath( $ini->val( "build", "templates_dir" ) // "templates" ),
+        SRC => $ini->val( "build", "src" )
           // "src",    # TODO: disallow back/forward slashes
-        DEST        => $manifest->val( "build", "dest" )        // "_site",
-        ENCODING    => $manifest->val( "build", "encoding" )    // "UTF-8",
-        COLLECTIONS => $manifest->val( "build", "collections" ) // undef,
-        EXCLUDE => $manifest->val( "build",  "exclude" ) // "*.md, templates",
+        DEST        => $ini->val( "build", "dest" )        // "_site",
+        ENCODING    => $ini->val( "build", "encoding" )    // "UTF-8",
+        COLLECTIONS => $ini->val( "build", "collections" ) // undef,
+        EXCLUDE => $ini->val( "build",  "exclude" ) // "*.md, templates",
         # Security: EVAL_PERL allows arbitrary Perl in templates; only
         # enable for trusted template sources.
-        EVAL_PERL => $manifest->val( "build",  "evaluate perl" ) // 0,
-        PORT    => $manifest->val( "server", "port" )    // "9000",
-        HOST    => $manifest->val( "server", "host" )    // "localhost"
+        EVAL_PERL => $ini->val( "build",  "evaluate perl" ) // 0,
+        PORT    => $ini->val( "server", "port" )    // "9000",
+        HOST    => $ini->val( "server", "host" )    // "localhost"
     );
 
 
     # set template toolkit options
-    $config{TT_CONFIG}->{INCLUDE_PATH} = $config{TT_DIR};
-    $config{TT_CONFIG}->{ENCODING}     = $config{ENCODING};
-    $config{TT_CONFIG}->{EVAL_PERL}    = $config{EVAL_PERL};
-    $config{TT_CONFIG}->{PLUGINS}      = { Markdown => 'Markdown' };
+    $manifest{TT_CONFIG}->{INCLUDE_PATH} = $manifest{TT_DIR};
+    $manifest{TT_CONFIG}->{ENCODING}     = $manifest{ENCODING};
+    $manifest{TT_CONFIG}->{EVAL_PERL}    = $manifest{EVAL_PERL};
+    $manifest{TT_CONFIG}->{PLUGINS}      = { Markdown => 'Markdown' };
 
-    my $debug_tt_config = Dumper($config{TT_CONFIG});
+    my $debug_tt_manifest = Dumper($manifest{TT_CONFIG});
 
     say qq{
-	SRC: $config{SRC}
-	DEST: $config{DEST}
-	Excluding: $config{EXCLUDE}
-	Encoding: $config{ENCODING}
-	Template Toolkit Config: $debug_tt_config
+	SRC: $manifest{SRC}
+	DEST: $manifest{DEST}
+	Excluding: $manifest{EXCLUDE}
+	Encoding: $manifest{ENCODING}
+	Template Toolkit Config: $debug_tt_manifest
 	Server -
-	 PORT:$config{PORT}
+	 PORT:$manifest{PORT}
     } if $opts{verbose};
 
-    mkdir( $config{DEST} ) unless -e $config{DEST};
+    mkdir( $manifest{DEST} ) unless -e $manifest{DEST};
 
     # Run the initial build
-    run_build(%config);
+    run_build(%manifest);
 
-    say "Site created in $config{DEST}!";
+    say "Site created in $manifest{DEST}!";
 
     if ($opts{server}) {
-        set_dev_mode(catfile($config{DEST}, '__bss_meta.json'), $config{SRC}, $config{TT_DIR});
-        fork_watcher(%config);
-        say "Watching $config{SRC} for changes...";
-        server(%config);
+        set_dev_mode(catfile($manifest{DEST}, '__bss_meta.json'), $manifest{SRC}, $manifest{TT_DIR});
+        fork_watcher(%manifest);
+        say "Watching $manifest{SRC} for changes...";
+        server(%manifest);
     }
 }
 
 sub run_build {
-    my %config    = @_;
+    my %manifest    = @_;
     my $start_time = time();
 
     # Parse collections (re-scanned each build so new files are picked up)
     my @collections =
-      defined( $config{COLLECTIONS} ) && !ref( $config{COLLECTIONS} )
-      ? split( /,/, $config{COLLECTIONS} )
+      defined( $manifest{COLLECTIONS} ) && !ref( $manifest{COLLECTIONS} )
+      ? split( /,/, $manifest{COLLECTIONS} )
       : ();
     my %collections = ();
     for my $dir (@collections) {
+        $dir =~ s/^\s+|\s+$//g;    # trim whitespace from collection names
         $collections{$dir} = [];
         find(
             sub {
-                return if $_ eq "." or $_ eq "..";
+                return unless -f $_;
                 return if $_ =~ $EDITOR_JUNK_RE;
+                return unless $_ =~ $MD_EXT_RE;
                 ( my $name = $_ ) =~ s/$MD_EXT_RE/\.html/;
                 push @{ $collections{$dir} }, $name;
             },
-            File::Spec->catfile( $config{SRC}, $dir )
+            File::Spec->catfile( $manifest{SRC}, $dir )
         );
     }
-    $config{COLLECTIONS} = \%collections if @collections;
+    $manifest{COLLECTIONS} = \%collections if @collections;
 
     # Pre-scan template directory to build a layout lookup table
     my %template_map;
@@ -171,21 +173,21 @@ sub run_build {
                 $template_map{$1} = $_;
             }
         },
-        $config{TT_DIR}
+        $manifest{TT_DIR}
     );
-    $config{TEMPLATE_MAP} = \%template_map;
+    $manifest{TEMPLATE_MAP} = \%template_map;
 
     # the actual build
     find(
         {
-            wanted => sub { build(%config) }
+            wanted => sub { build(%manifest) }
         },
-        $config{SRC}
+        $manifest{SRC}
     );
 
     # rsync
     open my $exclude_fh, ">", "exclude.txt";
-    my @excludes = split /,/, $config{EXCLUDE};
+    my @excludes = split /,/, $manifest{EXCLUDE};
     for my $line (@excludes) {
         say $exclude_fh "$line";
     }
@@ -195,8 +197,8 @@ sub run_build {
     $info_flags = "ALL" if $opts{verbose};
 
     my $rsync_exit = system "rsync", "-avmh", "--exclude-from=exclude.txt",
-      "--info=$info_flags", "$config{SRC}/",
-      $config{DEST};
+      "--info=$info_flags", "$manifest{SRC}/",
+      $manifest{DEST};
     warn "rsync exited with status $rsync_exit\n" if $rsync_exit != 0;
 
     # house cleaning
@@ -205,17 +207,17 @@ sub run_build {
         sub {
             if ( $_ =~ /.html$/ ) { unlink($_) }
         },
-        $config{SRC}
+        $manifest{SRC}
     );
 
     # Gather stats and write build metadata
     my $elapsed_ms = int( ( time() - $start_time ) * 1000 );
     $build_id++;
     my ( $page_count, $file_count, $total_size ) =
-      gather_site_stats( $config{DEST} );
+      gather_site_stats( $manifest{DEST} );
 
     write_bss_meta(
-        $config{DEST},
+        $manifest{DEST},
         {
             build_id         => $build_id,
             build_time       => strftime( "%Y-%m-%d %H:%M:%S", localtime() ),
@@ -296,7 +298,7 @@ sub has_changes {
 }
 
 sub fork_watcher {
-    my %config = @_;
+    my %manifest = @_;
 
     defined( my $pid = fork() ) or die "Can't fork watcher: $!";
 
@@ -311,16 +313,16 @@ sub fork_watcher {
         open STDERR, '>', '/dev/null' or die "Can't redirect STDERR: $!";
 
         my %last_mtimes =
-          scan_src_mtimes( $config{SRC}, $config{TT_DIR} );
+          scan_src_mtimes( $manifest{SRC}, $manifest{TT_DIR} );
 
         while ( !$quit ) {
             sleep 1;
             my %current =
-              scan_src_mtimes( $config{SRC}, $config{TT_DIR} );
+              scan_src_mtimes( $manifest{SRC}, $manifest{TT_DIR} );
             if ( has_changes( \%last_mtimes, \%current ) ) {
-                eval { run_build(%config) };
+                eval { run_build(%manifest) };
                 %last_mtimes =
-                  scan_src_mtimes( $config{SRC}, $config{TT_DIR} );
+                  scan_src_mtimes( $manifest{SRC}, $manifest{TT_DIR} );
             }
         }
         exit 0;
@@ -328,17 +330,17 @@ sub fork_watcher {
 }
 
 sub build {
-    my %config   = @_;
+    my %manifest   = @_;
     my $filename = $_;
     if ( -d $filename ) {
         my $resolved = abs_path($File::Find::name);
-        if ( defined $resolved && $resolved eq $config{TT_DIR} ) {
+        if ( defined $resolved && $resolved eq $manifest{TT_DIR} ) {
             say "Ignoring: $File::Find::name" if $opts{verbose};
             $File::Find::prune = 1;
         }
     }
     elsif ( $_ =~ /$MD_EXT_RE/ ) {
-        handle_yaml(%config);
+        handle_yaml(%manifest);
     }
     elsif ( $_ =~ /\.(png|jpe?g|gif|svg)$/i ) {
         # images are copied as-is by rsync
@@ -346,7 +348,7 @@ sub build {
 }
 
 sub handle_yaml {
-    my %config = @_;
+    my %manifest = @_;
     my $yaml;
     my $markdown = $_;
     open(my $MD, $markdown);
@@ -361,14 +363,14 @@ sub handle_yaml {
         $body = substr($data, $+[0]);
     }
     $yaml //= {};
-    write_html( $markdown, $yaml, $body, %config );
+    write_html( $markdown, $yaml, $body, %manifest );
 }
 
 sub write_html {
-    my ( $html, $yaml, $body, %config ) = @_;
+    my ( $html, $yaml, $body, %manifest ) = @_;
     $html =~ s/$MD_EXT_RE/\.html/;
 
-    my $template = Template->new( $config{TT_CONFIG} );
+    my $template = Template->new( $manifest{TT_CONFIG} );
 
     my $rendered_body = markdown($body);
     open my $HTML, ">", $html;
@@ -376,12 +378,12 @@ sub write_html {
     my $vars = {
         title         => $yaml->{title} // '',
         body          => [$rendered_body],
-        collections   => $config{COLLECTIONS},
+        collections   => $manifest{COLLECTIONS},
     };
 
     # Resolve layout name to a template file via the pre-scanned map
     my $layout_name = $yaml->{layout} // '';
-    my $layout_file = $config{TEMPLATE_MAP}->{$layout_name};
+    my $layout_file = $manifest{TEMPLATE_MAP}->{$layout_name};
     unless ( defined $layout_file ) {
         warn "No template found for layout '$layout_name' in $html\n";
         close $HTML;
@@ -395,14 +397,14 @@ sub write_html {
 }
 
 sub server {
-    my %config = @_;
+    my %manifest = @_;
 
     my $listen_socket = IO::Socket::INET->new(
-        LocalPort => $config{PORT},
+        LocalPort => $manifest{PORT},
         Listen    => "SOMAXCONN",
         Reuse     => 1
     ) or die "Can't create listen socket: $!";
-    say "Started local dev server on $config{PORT}!";
+    say "Started local dev server on $manifest{PORT}!";
 
     while ( !$quit ) {
 
@@ -428,7 +430,7 @@ bss build [options]
 
      Options:
        -h, --help     display this help message
-       -s, --server   serves config DEST
+       -s, --server   serves manifest DEST
        -v, --verbose  gets talkative
 
 =head1 DESCRIPTION

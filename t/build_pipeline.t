@@ -90,6 +90,9 @@ subtest 'Collection scanning' => sub {
     _write_file(catfile($posts_dir, '.hello.md.swp'), 'swap');
     _write_file(catfile($posts_dir, 'backup.md~'), 'backup');
 
+    # Create a leftover .html file (from a previous build) — must NOT appear
+    _write_file(catfile($posts_dir, 'hello.html'), '<html>leftover</html>');
+
     my $EDITOR_JUNK_RE = qr/(?:^\..*\.sw[a-p]$|~$|^4913$|^\#.*\#$)/;
     my $MD_EXT_RE = qr/\.[mM](ark)?[dD](own)?$/;
 
@@ -97,18 +100,20 @@ subtest 'Collection scanning' => sub {
     require File::Find;
     File::Find::find(
         sub {
-            return if $_ eq '.' or $_ eq '..';
+            return unless -f $_;
             return if $_ =~ $EDITOR_JUNK_RE;
+            return unless $_ =~ $MD_EXT_RE;
             (my $name = $_) =~ s/$MD_EXT_RE/\.html/;
             push @collected, $name;
         },
         $posts_dir
     );
 
-    is(scalar @collected, 2, 'Two real posts collected (junk filtered)');
+    is(scalar @collected, 2, 'Two real posts collected (junk and .html leftovers filtered)');
     ok((grep { $_ eq 'hello.html' } @collected), 'hello.md collected as hello.html');
     ok((grep { $_ eq 'world.html' } @collected), 'world.md collected as world.html');
     ok(!(grep { /swp|backup/ } @collected), 'No junk files in collection');
+    is(scalar(grep { $_ eq 'hello.html' } @collected), 1, 'No duplicates from leftover .html files');
 };
 
 # --- Test build output structure ---
