@@ -9,7 +9,7 @@ our @EXPORT = qw(handle_connection docroot set_dev_mode);
 
 use IO::Compress::Gzip qw(gzip $GzipError);
 use Cwd qw(abs_path realpath);
-use Encode qw(decode_utf8);
+use Encode qw(decode);
 use File::Spec::Functions qw(catfile);
 use JSON::PP;
 
@@ -87,7 +87,7 @@ sub handle_connection {
 				$post_body .= $chunk;
 				$remaining -= $bytes_read;
 			}
-			$post_body = decode_utf8($post_body);
+			$post_body = eval { decode('UTF-8', $post_body, Encode::FB_CROAK) } // $post_body;
 		}
 	}
 
