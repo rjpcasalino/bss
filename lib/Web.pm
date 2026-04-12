@@ -123,9 +123,13 @@ sub handle_connection {
 	}
 
 	# print the header
+	my $ct = $type;
+	if ($type =~ m!^text/!) {
+		$ct .= '; charset=utf-8' unless $ct =~ /charset/;
+	}
 	print $c "HTTP/1.0 200 OK$CRLF";
 	print $c "Content-length: $length$CRLF";
-	print $c "Content-type: $type$CRLF";
+	print $c "Content-type: $ct$CRLF";
 	print $c $CRLF;
 
 	return unless $method eq 'GET';
@@ -153,8 +157,13 @@ sub _send_response {
 	}
 
 	my $length = length($body);
+	my $ct = $type;
+	# Add charset for text types so browsers interpret UTF-8 correctly
+	if ($type =~ m!^text/! || $type eq 'application/javascript' || $type eq 'application/json') {
+		$ct .= '; charset=utf-8' unless $ct =~ /charset/;
+	}
 	print $c "HTTP/1.0 200 OK$CRLF";
-	print $c "Content-type: $type$CRLF";
+	print $c "Content-type: $ct$CRLF";
 	print $c "Content-length: $length$CRLF";
 	print $c "Content-Encoding: gzip$CRLF" if $encoding;
 	print $c "Vary: Accept-Encoding$CRLF" if $COMPRESSIBLE{$type};
@@ -409,6 +418,7 @@ sub _dev_snippet {
 	$url =~ s/'/\\'/g;
 	return <<"END_SNIPPET";
 <!-- bss dev mode: live reload + stats + editor -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>&#x270f;</text></svg>">
 <style>
 html {
     transition: opacity 0.15s ease;
