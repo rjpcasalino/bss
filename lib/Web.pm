@@ -420,7 +420,7 @@ sub _dev_snippet {
 	$url =~ s/'/\\'/g;
 	return <<"END_SNIPPET";
 <!-- bss dev mode: live reload + stats + editor -->
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E\x{270f}\x{fe0f}%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%E2%9C%8F%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <style>
 /* --- Stats overlay: flat B&W A4 paper style --- */
 #bss-dev-stats {
@@ -650,12 +650,12 @@ sub _dev_snippet {
         <div class="bss-row"><span class="bss-label">Built at</span><span class="bss-value" id="bss-built-at">&mdash;</span></div>
     </div>
 </div>
-<div id="bss-editor-toggle" onclick="bssToggleEditor()">\x{270f}\x{fe0f} Edit</div>
+<div id="bss-editor-toggle" onclick="bssToggleEditor()">&#x270F;&#xFE0F; Edit</div>
 <div id="bss-editor">
     <div class="bss-drag-handle" id="bss-drag-handle"></div>
     <div class="bss-editor-bar">
         <div style="display:flex;align-items:center">
-            <span class="bss-editor-title">\x{270f}\x{fe0f} Editor</span>
+            <span class="bss-editor-title">&#x270F;&#xFE0F; Editor</span>
             <span class="bss-editor-path" id="bss-editor-path"></span>
             <div class="bss-editor-tabs" id="bss-editor-tabs">
                 <button class="bss-tab-active" id="bss-tab-source" onclick="event.stopPropagation();bssSwitchTab('source')">Source</button>
@@ -666,7 +666,7 @@ sub _dev_snippet {
             <label class="bss-live-label" title="Auto-save as you type"><input type="checkbox" id="bss-live-toggle" onchange="bssToggleLive(this.checked)"> Live</label>
             <span class="bss-editor-status" id="bss-editor-status"></span>
             <button class="bss-save-btn" onclick="bssSave()">Save</button>
-            <button class="bss-action-btn" onclick="bssToggleEditor()">\x{2715} Close</button>
+            <button class="bss-action-btn" onclick="bssToggleEditor()">&#x2715; Close</button>
         </div>
     </div>
     <textarea id="bss-editor-textarea" onclick="event.stopPropagation()" spellcheck="false"></textarea>
@@ -749,14 +749,18 @@ sub _dev_snippet {
                 /* Swap <title> if present */
                 var newTitle = doc.querySelector('title');
                 if (newTitle) document.title = newTitle.textContent;
-                /* Detach preserved bss elements before replacing body */
-                preserved.forEach(function(el) {
-                    if (el.parentNode) el.parentNode.removeChild(el);
+                /* Remove all non-bss children from body, leaving bss
+                   elements in place so the textarea undo stack survives. */
+                Array.from(document.body.childNodes).forEach(function(child) {
+                    if (preserved.indexOf(child) === -1) {
+                        document.body.removeChild(child);
+                    }
                 });
-                /* Replace body content with the new (snippet-free) content */
-                document.body.innerHTML = doc.body.innerHTML;
-                /* Re-attach preserved bss elements */
-                preserved.forEach(function(el) { document.body.appendChild(el); });
+                /* Insert new page content before the first preserved element */
+                var anchor = preserved.length > 0 ? preserved[0] : null;
+                Array.from(doc.body.childNodes).forEach(function(newChild) {
+                    document.body.insertBefore(document.adoptNode(newChild), anchor);
+                });
                 /* Update head stylesheets from the new page */
                 var oldStyles = Array.from(document.head.querySelectorAll('style:not([data-bss]), link[rel=\"stylesheet\"]:not([data-bss])'));
                 var newStyles = Array.from(doc.head.querySelectorAll('style, link[rel=\"stylesheet\"]'));
