@@ -9,6 +9,7 @@ our @EXPORT = qw(handle_connection docroot set_dev_mode);
 
 use IO::Compress::Gzip qw(gzip $GzipError);
 use Cwd qw(abs_path realpath);
+use Encode qw(decode_utf8);
 use File::Spec::Functions qw(catfile);
 use JSON::PP;
 
@@ -74,7 +75,7 @@ sub handle_connection {
 	}
 	my $accept_gzip = ($headers{'accept-encoding'} // '') =~ /\bgzip\b/;
 
-	# Read POST body
+	# Read POST body (raw bytes from socket, then decode UTF-8)
 	my $post_body = '';
 	if ($method eq 'POST') {
 		my $len = int($headers{'content-length'} // 0);
@@ -86,6 +87,7 @@ sub handle_connection {
 				$post_body .= $chunk;
 				$remaining -= $bytes_read;
 			}
+			$post_body = decode_utf8($post_body);
 		}
 	}
 
@@ -335,7 +337,7 @@ sub _send_json {
 		: 'Internal Server Error';
 	my $len = length($json);
 	print $c "HTTP/1.0 $code $status$CRLF";
-	print $c "Content-type: application/json$CRLF";
+	print $c "Content-type: application/json; charset=utf-8$CRLF";
 	print $c "Content-length: $len$CRLF";
 	print $c $CRLF;
 	print $c $json;
