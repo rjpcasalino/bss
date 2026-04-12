@@ -195,6 +195,7 @@ subtest 'Dev snippet injection' => sub {
     like($snippet, qr/auto-indent/, 'Snippet has Enter auto-indent');
     like($snippet, qr/leadingWS/, 'Snippet detects leading whitespace for auto-indent');
     like($snippet, qr/duplicate/, 'Snippet supports Ctrl+D duplicate line');
+    like($snippet, qr/setTextareaValue/, 'Snippet uses undo-safe textarea setter');
 
     # URL is properly escaped
     my $snippet2 = Web::_dev_snippet("/it's-a-page");

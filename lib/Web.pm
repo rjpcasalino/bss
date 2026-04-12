@@ -697,6 +697,17 @@ sub _dev_snippet {
         el('bss-build-time').textContent = data.build_duration_ms + 'ms';
         el('bss-built-at').textContent = data.build_time;
     }
+    /* Set textarea content without destroying the browser undo stack.
+       If the new value is identical to the current value, skip entirely.
+       Otherwise select-all and insertText so Ctrl+Z still works. */
+    function setTextareaValue(ta, newVal) {
+        if (ta.value === newVal) return;
+        ta.focus();
+        ta.selectionStart = 0;
+        ta.selectionEnd = ta.value.length;
+        document.execCommand('insertText', false, newVal);
+    }
+
     /* In-place content swap: fetch the rebuilt page and swap the body
        content without a full reload, preserving scroll position, editor
        state, and the dev overlay. Falls back to location.reload() on
@@ -819,16 +830,16 @@ sub _dev_snippet {
         var ta = document.getElementById('bss-editor-textarea');
         var pathEl = document.getElementById('bss-editor-path');
         if (tab === 'source' && sourceData) {
-            ta.value = sourceData.content;
+            setTextareaValue(ta, sourceData.content);
             pathEl.textContent = sourceData.path;
         } else if (tab === 'template') {
             if (templateData) {
-                ta.value = templateData.content;
+                setTextareaValue(ta, templateData.content);
                 pathEl.textContent = templateData.path;
             } else if (sourceData && sourceData.layout) {
                 bssLoadTemplate(sourceData.layout);
             } else {
-                ta.value = 'No template found for this page';
+                setTextareaValue(ta, 'No template found for this page');
                 pathEl.textContent = '';
             }
         }
@@ -853,7 +864,7 @@ sub _dev_snippet {
                 }
                 sourceData = data;
                 if (activeTab === 'source') {
-                    ta.value = data.content;
+                    setTextareaValue(ta, data.content);
                     document.getElementById('bss-editor-path').textContent = data.path;
                     /* Restore cursor/scroll position */
                     ta.selectionStart = Math.min(savedStart, data.content.length);
@@ -884,7 +895,7 @@ sub _dev_snippet {
                 templateData = data;
                 templateLoaded = true;
                 if (activeTab === 'template') {
-                    document.getElementById('bss-editor-textarea').value = data.content;
+                    setTextareaValue(document.getElementById('bss-editor-textarea'), data.content);
                     document.getElementById('bss-editor-path').textContent = data.path;
                 }
                 status.textContent = '';
