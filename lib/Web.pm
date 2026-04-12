@@ -418,7 +418,7 @@ sub _dev_snippet {
 	$url =~ s/'/\\'/g;
 	return <<"END_SNIPPET";
 <!-- bss dev mode: live reload + stats + editor -->
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>\x{270f}\x{fe0f}</text></svg>">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E\x{270f}\x{fe0f}%3C/text%3E%3C/svg%3E">
 <style>
 html {
     transition: opacity 0.15s ease;
