@@ -1,0 +1,15 @@
+[% header = "partials/header.tmpl" %]
+[% footer = "partials/footer.tmpl" %]
+[% INCLUDE $header %]
+
+[% FOREACH part IN body %]
+    [% part %]
+[% END %]
+
+<div class="photo-grid">
+[% FOREACH c = collections.photos.sort.reverse %]
+    <a href="photos/[% c %]">[% c.replace('(-|_|\.html|[0-9])', ' ') %]</a>
+[% END %]
+</div>
+
+[% INCLUDE $footer %]

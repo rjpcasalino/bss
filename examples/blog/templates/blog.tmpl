@@ -1,0 +1,23 @@
+[% header = "partials/header.tmpl" %]
+[% footer = "partials/footer.tmpl" %]
+[% INCLUDE $header %]
+
+<h1>[% title %]</h1>
+
+<div class="posts">
+    [% FOREACH part IN body %]
+        [% part %]
+    [% END %]
+
+    <hr style="margin: 2rem 0;">
+    <h2>&sect; Posts</h2>
+    <ul style="list-style: none; padding: 0;">
+    [% FOREACH c = collections.posts.sort.reverse %]
+        <li style="margin: 0.5rem 0;">
+            <a href="posts/[% c %]">[% c.replace('(-|_|\.html|[0-9])', ' ') %]</a>
+        </li>
+    [% END %]
+    </ul>
+</div>
+
+[% INCLUDE $footer %]

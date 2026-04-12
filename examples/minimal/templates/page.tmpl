@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>[% title %]</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: monospace;
+            max-width: 520px;
+            margin: 3rem auto;
+            padding: 0 1rem;
+            line-height: 1.8;
+            color: #111;
+        }
+        a { color: #111; }
+        h1 { font-size: 1.1rem; margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+<h1>[% title %]</h1>
+
+[% FOREACH part IN body %]
+    [% part %]
+[% END %]
+
+<hr style="margin: 2rem 0;">
+<p style="font-size: 0.8rem; color: #888;">Built with <a href="https://github.com/rjpcasalino/bss">bss</a></p>
+</body>
+</html>
