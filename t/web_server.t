@@ -190,6 +190,12 @@ subtest 'Dev snippet injection' => sub {
     like($snippet, qr/\.focus\(\)/, 'Snippet re-focuses textarea after swap');
     like($snippet, qr/insertText/, 'Tab uses insertText to preserve undo history');
 
+    # Standard editor keybindings
+    like($snippet, qr/Shift.*Tab|shiftKey/, 'Snippet supports Shift+Tab to unindent');
+    like($snippet, qr/auto-indent/, 'Snippet has Enter auto-indent');
+    like($snippet, qr/leadingWS/, 'Snippet detects leading whitespace for auto-indent');
+    like($snippet, qr/duplicate/, 'Snippet supports Ctrl+D duplicate line');
+
     # URL is properly escaped
     my $snippet2 = Web::_dev_snippet("/it's-a-page");
     like($snippet2, qr/it\\'s-a-page/, 'Single quotes escaped in URL');

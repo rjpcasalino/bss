@@ -960,14 +960,85 @@ sub _dev_snippet {
         }, 800);
     });
 
+    /* Helper: get the full text of the line containing the given position */
+    function getLine(text, pos) {
+        var start = text.lastIndexOf('\\n', pos - 1) + 1;
+        var end = text.indexOf('\\n', pos);
+        if (end === -1) end = text.length;
+        return { start: start, end: end, text: text.substring(start, end) };
+    }
+
+    /* Helper: get the leading whitespace of a string */
+    function leadingWS(str) {
+        var m = str.match(/^[ \\t]*/);
+        return m ? m[0] : '';
+    }
+
     ta.addEventListener('keydown', function(e) {
+        var start = this.selectionStart;
+        var end = this.selectionEnd;
+        var val = this.value;
+
+        /* --- Tab / Shift+Tab: indent or unindent --- */
         if (e.key === 'Tab') {
             e.preventDefault();
-            /* Use insertText so the browser records this on the undo
-               stack and Ctrl+Z / Cmd+Z keeps working. */
-            document.execCommand('insertText', false, '\\t');
+            if (start === end && !e.shiftKey) {
+                /* No selection: insert a tab at cursor (undo-safe) */
+                document.execCommand('insertText', false, '\\t');
+            } else {
+                /* Selection spans lines: indent/unindent each line.
+                   Expand selection to cover full lines first. */
+                var lineStart = val.lastIndexOf('\\n', start - 1) + 1;
+                var lineEnd = val.indexOf('\\n', end);
+                if (lineEnd === -1) lineEnd = val.length;
+                var block = val.substring(lineStart, lineEnd);
+                var lines = block.split('\\n');
+                var newLines;
+                if (e.shiftKey) {
+                    /* Unindent: remove one leading tab or up to 4 spaces */
+                    newLines = lines.map(function(l) {
+                        if (l.charAt(0) === '\\t') return l.substring(1);
+                        var m = l.match(/^( {1,4})/);
+                        return m ? l.substring(m[1].length) : l;
+                    });
+                } else {
+                    /* Indent: add a tab to each line */
+                    newLines = lines.map(function(l) { return '\\t' + l; });
+                }
+                var newBlock = newLines.join('\\n');
+                this.selectionStart = lineStart;
+                this.selectionEnd = lineEnd;
+                document.execCommand('insertText', false, newBlock);
+                /* Re-select the modified block */
+                this.selectionStart = lineStart;
+                this.selectionEnd = lineStart + newBlock.length;
+            }
+            return;
         }
-        /* Ctrl/Cmd+S to save */
+
+        /* --- Enter: auto-indent to match current line --- */
+        if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+            var line = getLine(val, start);
+            var indent = leadingWS(line.text);
+            if (indent.length > 0) {
+                e.preventDefault();
+                document.execCommand('insertText', false, '\\n' + indent);
+            }
+            /* else let the browser handle the plain Enter */
+            return;
+        }
+
+        /* --- Ctrl/Cmd+D: duplicate current line --- */
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+            e.preventDefault();
+            var line = getLine(val, start);
+            /* Position cursor at end of current line, then insert a copy */
+            this.selectionStart = this.selectionEnd = line.end;
+            document.execCommand('insertText', false, '\\n' + line.text);
+            return;
+        }
+
+        /* --- Ctrl/Cmd+S: save --- */
         if ((e.ctrlKey || e.metaKey) && e.key === 's') {
             e.preventDefault();
             bssSave();
