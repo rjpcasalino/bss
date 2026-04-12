@@ -418,7 +418,7 @@ sub _dev_snippet {
 	$url =~ s/'/\\'/g;
 	return <<"END_SNIPPET";
 <!-- bss dev mode: live reload + stats + editor -->
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%2780%27 font-size=%2780%27%3E%26%23x270f;%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>\x{270f}\x{fe0f}</text></svg>">
 <style>
 html {
     transition: opacity 0.15s ease;
@@ -869,12 +869,12 @@ html.bss-fade-out {
             if (h > maxH * 0.7) {
                 editor.style.height = '';
                 editor.classList.add('bss-editor-full');
-                try { localStorage.setItem('bss-editor-full', '1'); } catch(e) {}
+                try { localStorage.setItem('bss-editor-full', '1'); localStorage.removeItem('bss-editor-height'); } catch(e) {}
             } else if (h < defaultH * 1.3) {
                 editor.style.height = defaultH + 'px';
-                try { localStorage.setItem('bss-editor-full', '0'); } catch(e) {}
+                try { localStorage.setItem('bss-editor-full', '0'); localStorage.removeItem('bss-editor-height'); } catch(e) {}
             } else {
-                try { localStorage.setItem('bss-editor-full', '0'); } catch(e) {}
+                try { localStorage.setItem('bss-editor-full', '0'); localStorage.setItem('bss-editor-height', h); } catch(e) {}
             }
         }
 
@@ -925,10 +925,15 @@ html.bss-fade-out {
             snapAfterDrag();
         });
 
-        /* Restore full-screen state from localStorage */
+        /* Restore editor size from localStorage */
         try {
             if (localStorage.getItem('bss-editor-full') === '1') {
                 editor.classList.add('bss-editor-full');
+            } else {
+                var savedH = localStorage.getItem('bss-editor-height');
+                if (savedH) {
+                    editor.style.height = parseInt(savedH, 10) + 'px';
+                }
             }
         } catch(e) {}
 
@@ -938,11 +943,11 @@ html.bss-fade-out {
             if (editor.classList.contains('bss-editor-full')) {
                 editor.classList.remove('bss-editor-full');
                 editor.style.height = defaultH + 'px';
-                try { localStorage.setItem('bss-editor-full', '0'); } catch(e2) {}
+                try { localStorage.setItem('bss-editor-full', '0'); localStorage.removeItem('bss-editor-height'); } catch(e2) {}
             } else {
                 editor.style.height = '';
                 editor.classList.add('bss-editor-full');
-                try { localStorage.setItem('bss-editor-full', '1'); } catch(e2) {}
+                try { localStorage.setItem('bss-editor-full', '1'); localStorage.removeItem('bss-editor-height'); } catch(e2) {}
             }
         });
     })();
