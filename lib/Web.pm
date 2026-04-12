@@ -680,6 +680,8 @@ sub _dev_snippet {
     var sourceData = null;
     var templateData = null;
     var templateLoaded = false;
+    var userIsTyping = false;  /* true while user is actively editing */
+    var typingTimer = null;
 
     function formatBytes(bytes) {
         if (bytes < 1024) return bytes + ' B';
@@ -750,12 +752,21 @@ sub _dev_snippet {
                 newStyles.forEach(function(s) { document.head.appendChild(document.adoptNode(s)); });
                 /* Restore scroll position */
                 window.scrollTo(scrollX, scrollY);
-                /* Reload editor source if it's open */
-                if (editorLoaded) {
+                /* Reload editor source if it's open, but NOT while user
+                   is actively typing in Live mode — their local content
+                   is the source of truth and re-fetching would overwrite
+                   it and steal focus. */
+                if (editorLoaded && !userIsTyping) {
                     bssLoadSource();
                     if (templateLoaded && sourceData && sourceData.layout) {
                         bssLoadTemplate(sourceData.layout);
                     }
+                }
+                /* Re-focus the textarea if the editor is open so the user
+                   can keep typing without clicking back into it. */
+                if (document.getElementById('bss-editor').classList.contains('bss-editor-open')) {
+                    var newTa = document.getElementById('bss-editor-textarea');
+                    if (newTa) newTa.focus();
                 }
             })
             .catch(function() {
@@ -934,6 +945,12 @@ sub _dev_snippet {
     };
 
     ta.addEventListener('input', function() {
+        /* Track that the user is actively editing so swapContent
+           won't overwrite their work or steal focus. */
+        userIsTyping = true;
+        if (typingTimer) clearTimeout(typingTimer);
+        typingTimer = setTimeout(function() { userIsTyping = false; }, 3000);
+
         if (!liveMode) return;
         if (liveTimer) clearTimeout(liveTimer);
         liveTimer = setTimeout(function() {
