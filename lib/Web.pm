@@ -582,6 +582,18 @@ sub _dev_snippet {
 #bss-editor .bss-editor-bar button.bss-save-btn:hover {
     background: #333;
 }
+#bss-editor .bss-live-label {
+    font-size: 11px;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+#bss-editor .bss-live-label input {
+    margin: 0;
+    cursor: pointer;
+}
 #bss-editor .bss-editor-status {
     font-size: 11px;
     margin-left: 8px;
@@ -651,6 +663,7 @@ sub _dev_snippet {
             </div>
         </div>
         <div class="bss-editor-actions" onclick="event.stopPropagation()">
+            <label class="bss-live-label" title="Auto-save as you type"><input type="checkbox" id="bss-live-toggle" onchange="bssToggleLive(this.checked)"> Live</label>
             <span class="bss-editor-status" id="bss-editor-status"></span>
             <button class="bss-save-btn" onclick="bssSave()">Save</button>
             <button class="bss-action-btn" onclick="bssToggleEditor()">\x{2715} Close</button>
@@ -811,6 +824,11 @@ sub _dev_snippet {
 
     window.bssLoadSource = function() {
         var status = document.getElementById('bss-editor-status');
+        var ta = document.getElementById('bss-editor-textarea');
+        /* Save cursor/scroll position before reload */
+        var savedStart = ta.selectionStart;
+        var savedEnd = ta.selectionEnd;
+        var savedScroll = ta.scrollTop;
         status.textContent = 'Loading...';
         status.style.color = '#555';
         fetch('/__bss/source?url=' + encodeURIComponent(currentUrl))
@@ -823,8 +841,12 @@ sub _dev_snippet {
                 }
                 sourceData = data;
                 if (activeTab === 'source') {
-                    document.getElementById('bss-editor-textarea').value = data.content;
+                    ta.value = data.content;
                     document.getElementById('bss-editor-path').textContent = data.path;
+                    /* Restore cursor/scroll position */
+                    ta.selectionStart = Math.min(savedStart, data.content.length);
+                    ta.selectionEnd = Math.min(savedEnd, data.content.length);
+                    ta.scrollTop = savedScroll;
                 }
                 status.textContent = '';
                 editorLoaded = true;
@@ -898,6 +920,28 @@ sub _dev_snippet {
 
     /* Tab key inserts a tab instead of leaving the textarea */
     var ta = document.getElementById('bss-editor-textarea');
+
+    /* Live preview: debounced auto-save on keystroke */
+    var liveMode = false;
+    var liveTimer = null;
+    try { liveMode = localStorage.getItem('bss-live') === '1'; } catch(e) {}
+    var liveCheckbox = document.getElementById('bss-live-toggle');
+    if (liveCheckbox) liveCheckbox.checked = liveMode;
+
+    window.bssToggleLive = function(on) {
+        liveMode = on;
+        try { localStorage.setItem('bss-live', on ? '1' : '0'); } catch(e) {}
+    };
+
+    ta.addEventListener('input', function() {
+        if (!liveMode) return;
+        if (liveTimer) clearTimeout(liveTimer);
+        liveTimer = setTimeout(function() {
+            liveTimer = null;
+            bssSave();
+        }, 800);
+    });
+
     ta.addEventListener('keydown', function(e) {
         if (e.key === 'Tab') {
             e.preventDefault();
