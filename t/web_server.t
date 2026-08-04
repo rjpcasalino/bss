@@ -219,6 +219,67 @@ subtest 'Save path security' => sub {
     ok($outside !~ /^\Q$safe_path\E/, 'Path outside src_dir fails guard');
 };
 
+# --- Test bss_new_post ---
+subtest 'bss_new_post' => sub {
+    # Successful creation
+    my $output = _capture_response(sub {
+        my $sock = shift;
+        Web::bss_new_post($sock, '{"title":"Hello World","slug":"hello-world","layout":"post","collection":"posts"}');
+    });
+    like($output, qr/200 OK/, 'new post returns 200');
+    like($output, qr/"ok"/, 'new post returns ok');
+    like($output, qr/hello-world/, 'new post returns slug in filename');
+
+    # Verify file was created
+    my @files = glob(catfile($src_dir, 'posts', '*hello-world.md'));
+    ok(@files == 1, 'Markdown file created in collection dir');
+    if (@files) {
+        open my $fh, '<', $files[0] or die;
+        local $/;
+        my $content = <$fh>;
+        close $fh;
+        like($content, qr/title: Hello World/, 'File has correct title front matter');
+        like($content, qr/layout: post/, 'File has correct layout front matter');
+    }
+
+    # Duplicate file rejected
+    $output = _capture_response(sub {
+        my $sock = shift;
+        Web::bss_new_post($sock, '{"title":"Hello World","slug":"hello-world","layout":"post","collection":"posts"}');
+    });
+    like($output, qr/409 Conflict/, 'Duplicate file returns 409');
+
+    # Missing required fields
+    $output = _capture_response(sub {
+        my $sock = shift;
+        Web::bss_new_post($sock, '{"title":"Only Title","slug":"","layout":""}');
+    });
+    like($output, qr/400 Bad Request/, 'Missing fields returns 400');
+
+    # Invalid slug characters
+    $output = _capture_response(sub {
+        my $sock = shift;
+        Web::bss_new_post($sock, '{"title":"Test","slug":"bad/slug","layout":"post"}');
+    });
+    like($output, qr/400 Bad Request/, 'Invalid slug characters returns 400');
+
+    # Invalid JSON
+    $output = _capture_response(sub {
+        my $sock = shift;
+        Web::bss_new_post($sock, 'not json');
+    });
+    like($output, qr/400 Bad Request/, 'Invalid JSON returns 400');
+
+    # No collection — creates at src root
+    $output = _capture_response(sub {
+        my $sock = shift;
+        Web::bss_new_post($sock, '{"title":"Root Post","slug":"root-post","layout":"page","collection":""}');
+    });
+    like($output, qr/200 OK/, 'Post without collection returns 200');
+    my @root_files = glob(catfile($src_dir, '*root-post.md'));
+    ok(@root_files == 1, 'File created at src root when no collection');
+};
+
 done_testing();
 
 # --- Helper: capture HTTP response from a function that writes to a socket ---
