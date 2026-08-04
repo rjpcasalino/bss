@@ -11,7 +11,9 @@ use IO::Compress::Gzip qw(gzip $GzipError);
 use Cwd qw(abs_path realpath);
 use Encode qw(decode);
 use File::Spec::Functions qw(catfile);
+use File::Path qw(make_path);
 use JSON::PP;
+use POSIX qw(strftime);
 
 my $DOCUMENT_ROOT = defined($ENV{'BSS_DOCROOT'}) ? $ENV{'BSS_DOCROOT'} : '_site';
 my $CRLF = "\015\012";
@@ -102,6 +104,9 @@ sub handle_connection {
 		}
 		if ($url =~ m!^/__bss/save!) {
 			return bss_save($c, $url, $post_body) if $method eq 'POST';
+		}
+		if ($url eq '/__bss/new') {
+			return bss_new_post($c, $post_body) if $method eq 'POST';
 		}
 	}
 
@@ -329,11 +334,81 @@ sub bss_save {
 	}
 }
 
+# POST /__bss/new — create a new markdown post file
+# Accepts JSON body: { "title": "...", "slug": "...", "collection": "posts", "layout": "post" }
+sub bss_new_post {
+	my ($c, $body) = @_;
+
+	unless ($SRC_DIR) {
+		return _send_json($c, 500, '{"error":"src dir not configured"}');
+	}
+
+	my $params = eval { JSON::PP->new->utf8->decode($body) };
+	if ($@) {
+		return _send_json($c, 400, '{"error":"invalid JSON"}');
+	}
+
+	my $title      = $params->{title}      // '';
+	my $slug       = $params->{slug}       // '';
+	my $collection = $params->{collection} // '';
+	my $layout     = $params->{layout}     // '';
+
+	# Validate required fields
+	unless ($title && $slug && $layout) {
+		return _send_json($c, 400, '{"error":"title, slug, and layout are required"}');
+	}
+
+	# Sanitize slug: allow only alphanumerics, hyphens, underscores
+	if ($slug =~ /[^a-zA-Z0-9\-_]/) {
+		return _send_json($c, 400, '{"error":"slug may only contain letters, numbers, hyphens, and underscores"}');
+	}
+
+	# Sanitize collection: allow only alphanumerics, hyphens, underscores (no path separators)
+	if ($collection && $collection =~ /[^a-zA-Z0-9\-_]/) {
+		return _send_json($c, 400, '{"error":"collection may only contain letters, numbers, hyphens, and underscores"}');
+	}
+
+	my $date = strftime('%Y-%m-%d', localtime());
+	my $filename = "$date-$slug.md";
+
+	my $dest_dir = $collection
+		? catfile($SRC_DIR, $collection)
+		: $SRC_DIR;
+
+	# Security: ensure dest_dir is within SRC_DIR
+	my $abs_src = realpath($SRC_DIR);
+	# make_path so the collection directory exists before realpath
+	make_path($dest_dir) unless -d $dest_dir;
+	my $abs_dest = realpath($dest_dir);
+	unless ($abs_src && $abs_dest && $abs_dest =~ /^\Q$abs_src\E(\/|$)/) {
+		return _send_json($c, 403, '{"error":"forbidden"}');
+	}
+
+	my $filepath = catfile($dest_dir, $filename);
+
+	if (-e $filepath) {
+		return _send_json($c, 409, '{"error":"file already exists"}');
+	}
+
+	my $front_matter = "---\ntitle: $title\nlayout: $layout\n---\n\n";
+
+	if (open my $fh, '>:encoding(UTF-8)', $filepath) {
+		print $fh $front_matter;
+		close $fh;
+		my $json = JSON::PP->new->utf8->encode({ ok => JSON::PP::true, path => $filepath, filename => $filename });
+		_send_json($c, 200, $json);
+	} else {
+		_send_json($c, 500, '{"error":"cannot create file"}');
+	}
+}
+
 sub _send_json {
 	my ($c, $code, $json) = @_;
 	my $status = $code == 200 ? 'OK'
+		: $code == 400 ? 'Bad Request'
 		: $code == 403 ? 'Forbidden'
 		: $code == 404 ? 'Not Found'
+		: $code == 409 ? 'Conflict'
 		: 'Internal Server Error';
 	my $len = length($json);
 	print $c "HTTP/1.0 $code $status$CRLF";
@@ -639,6 +714,110 @@ sub _dev_snippet {
     background: #000;
     color: #fff;
 }
+/* New Post button */
+#bss-new-post-btn {
+    position: fixed;
+    bottom: 12px;
+    right: 332px;
+    background: #fff;
+    color: #000;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 7px 14px;
+    border: 1px solid #000;
+    z-index: 99999;
+    cursor: pointer;
+    user-select: none;
+}
+#bss-new-post-btn:hover {
+    background: #000;
+    color: #fff;
+}
+/* New Post modal */
+#bss-new-post-modal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 999999;
+    align-items: center;
+    justify-content: center;
+}
+#bss-new-post-modal.bss-modal-open {
+    display: flex;
+}
+#bss-new-post-box {
+    background: #fff;
+    color: #000;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 13px;
+    border: 2px solid #000;
+    padding: 24px 28px;
+    min-width: 320px;
+    max-width: 480px;
+    width: 100%;
+}
+#bss-new-post-box h2 {
+    margin: 0 0 16px 0;
+    font-size: 15px;
+    font-weight: 700;
+    border-bottom: 1px solid #000;
+    padding-bottom: 8px;
+}
+#bss-new-post-box label {
+    display: block;
+    font-size: 11px;
+    color: #555;
+    margin-bottom: 2px;
+}
+#bss-new-post-box input {
+    width: 100%;
+    border: 1px solid #000;
+    background: #fff;
+    color: #000;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 13px;
+    padding: 5px 8px;
+    box-sizing: border-box;
+    margin-bottom: 12px;
+    outline: none;
+}
+#bss-new-post-box input:focus {
+    background: #fffff8;
+}
+#bss-new-post-box .bss-modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+    align-items: center;
+}
+#bss-new-post-box .bss-modal-status {
+    font-size: 11px;
+    color: #555;
+    flex: 1;
+}
+#bss-new-post-box button {
+    background: #fff;
+    color: #000;
+    border: 1px solid #000;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 12px;
+    padding: 5px 16px;
+    cursor: pointer;
+}
+#bss-new-post-box button:hover {
+    background: #000;
+    color: #fff;
+}
+#bss-new-post-box button.bss-primary {
+    background: #000;
+    color: #fff;
+    font-weight: 700;
+}
+#bss-new-post-box button.bss-primary:hover {
+    background: #333;
+}
 </style>
 <div id="bss-dev-stats" onclick="this.classList.toggle('bss-open')">
     <div class="bss-header"><span class="bss-dot"></span>bss dev</div>
@@ -651,6 +830,25 @@ sub _dev_snippet {
     </div>
 </div>
 <div id="bss-editor-toggle" onclick="bssToggleEditor()">&#x270F;&#xFE0F; Edit</div>
+<div id="bss-new-post-btn" onclick="bssOpenNewPost()">&#x2B; New Post</div>
+<div id="bss-new-post-modal" onclick="if(event.target===this)bssCloseNewPost()">
+    <div id="bss-new-post-box">
+        <h2>&#x2B; New Post</h2>
+        <label for="bss-np-title">Title</label>
+        <input id="bss-np-title" type="text" placeholder="My New Post" autocomplete="off">
+        <label for="bss-np-slug">Slug (filename, no spaces)</label>
+        <input id="bss-np-slug" type="text" placeholder="my-new-post" autocomplete="off">
+        <label for="bss-np-layout">Layout</label>
+        <input id="bss-np-layout" type="text" placeholder="post" autocomplete="off">
+        <label for="bss-np-collection">Collection (optional, e.g. posts)</label>
+        <input id="bss-np-collection" type="text" placeholder="posts" autocomplete="off">
+        <div class="bss-modal-actions">
+            <button class="bss-primary" onclick="bssCreatePost()">Create</button>
+            <button onclick="bssCloseNewPost()">Cancel</button>
+            <span class="bss-modal-status" id="bss-np-status"></span>
+        </div>
+    </div>
+</div>
 <div id="bss-editor">
     <div class="bss-drag-handle" id="bss-drag-handle"></div>
     <div class="bss-editor-bar">
@@ -734,7 +932,7 @@ sub _dev_snippet {
                 var doc = parser.parseFromString(html, 'text/html');
                 if (!doc || !doc.body) { location.reload(); return; }
                 /* Collect bss dev elements currently in the page to preserve */
-                var bssIds = ['bss-dev-stats','bss-editor-toggle','bss-editor'];
+                var bssIds = ['bss-dev-stats','bss-editor-toggle','bss-new-post-btn','bss-new-post-modal','bss-editor'];
                 var preserved = [];
                 bssIds.forEach(function(id) {
                     var el = document.getElementById(id);
@@ -1179,6 +1377,74 @@ sub _dev_snippet {
             }
         });
     })();
+
+    /* New Post modal */
+    window.bssOpenNewPost = function() {
+        document.getElementById('bss-new-post-modal').classList.add('bss-modal-open');
+        document.getElementById('bss-np-status').textContent = '';
+        var titleEl = document.getElementById('bss-np-title');
+        titleEl.value = '';
+        document.getElementById('bss-np-slug').value = '';
+        titleEl.focus();
+    };
+    window.bssCloseNewPost = function() {
+        document.getElementById('bss-new-post-modal').classList.remove('bss-modal-open');
+    };
+
+    /* Auto-generate slug from title */
+    document.getElementById('bss-np-title').addEventListener('input', function() {
+        var slug = this.value
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+        document.getElementById('bss-np-slug').value = slug;
+    });
+
+    /* Submit on Enter in any modal input */
+    ['bss-np-title','bss-np-slug','bss-np-layout','bss-np-collection'].forEach(function(id) {
+        document.getElementById(id).addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); bssCreatePost(); }
+            if (e.key === 'Escape') { bssCloseNewPost(); }
+        });
+    });
+
+    window.bssCreatePost = function() {
+        var title      = document.getElementById('bss-np-title').value.trim();
+        var slug       = document.getElementById('bss-np-slug').value.trim();
+        var layout     = document.getElementById('bss-np-layout').value.trim();
+        var collection = document.getElementById('bss-np-collection').value.trim();
+        var status = document.getElementById('bss-np-status');
+
+        if (!title || !slug || !layout) {
+            status.textContent = 'Title, slug, and layout are required.';
+            status.style.color = '#c00';
+            return;
+        }
+
+        status.textContent = 'Creating...';
+        status.style.color = '#555';
+
+        fetch('/__bss/new', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: title, slug: slug, layout: layout, collection: collection })
+        })
+        .then(function(r) { return r.json().then(function(d) { return { status: r.status, data: d }; }); })
+        .then(function(res) {
+            if (res.data.ok) {
+                status.textContent = 'Created: ' + res.data.filename;
+                status.style.color = '#080';
+                setTimeout(function() { bssCloseNewPost(); }, 1500);
+            } else {
+                status.textContent = res.data.error || 'Failed to create post.';
+                status.style.color = '#c00';
+            }
+        })
+        .catch(function() {
+            status.textContent = 'Request failed.';
+            status.style.color = '#c00';
+        });
+    };
 })();
 </script>
 END_SNIPPET
